@@ -1,0 +1,11 @@
+spring:
+  r2dbc:
+    url: r2dbc:postgresql://postgres-db:5432/postgres
+    username: postgres
+    password: postgrespw
+
+
+web-service:
+  slowpoke-host: http://slowpoke-service:8080
+
+pending-a

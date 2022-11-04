@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Component
 @Profile("fill_db")
 @RequiredArgsConstructor
-public class Util {
+public class FillDbService {
 
     private final Repository repository;
 

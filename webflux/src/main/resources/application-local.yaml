@@ -5,3 +5,6 @@ spring:
     url: r2dbc:postgresql://localhost:5432/postgres
     username: postgres
     password: postgrespw
+
+webflux-service:
+  slowpoke-host: http://localhost:8080

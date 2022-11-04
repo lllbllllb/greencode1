@@ -8,6 +8,6 @@ import org.springframework.stereotype.Component;
 @org.springframework.boot.context.properties.ConfigurationProperties("web-service")
 public class ConfigurationProperties {
 
-    private String slowpokeHost = "http://localhost:8080";
+    private String slowpokeHost;
 
 }

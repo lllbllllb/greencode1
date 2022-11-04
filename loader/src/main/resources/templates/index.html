@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ee">
+<head title="loader">
+    <style>
+        #rpsSlide {
+            overflow: hidden;
+            width: 100%;
+        }
+    </style>
+
+    <script type="text/javascript" charset="utf-8">
+        const loadWebServiceWs = new WebSocket("ws://localhost:8088/websocket/load?web-service", []);
+        loadWebServiceWs.onmessage = (event) => console.log(event.data)
+
+        const loadWebfluxServiceWs = new WebSocket("ws://localhost:8088/websocket/load?webflux-service", []);
+        loadWebfluxServiceWs.onmessage = (event) => console.log(event.data)
+
+        function loadServices(rps) {
+            const msg = {
+                rps: rps
+            }
+
+            loadWebServiceWs.send(JSON.stringify(msg))
+            loadWebfluxServiceWs.send(JSON.stringify(msg))
+        }
+
+        window.onload = (event) => {
+            const rpsSlide = document.getElementById('rpsSlide');
+            const rpsSliderDiv = document.getElementById("sliderAmount");
+
+            rpsSlide.onchange = function () {
+                rpsSliderDiv.innerHTML = this.value;
+                loadServices(this.value);
+            }
+        };
+
+
+    </script>
+</head>
+<body>
+
+<input id="rpsSlide" type="range" min="0" max="1000" step="1" value="0">
+<div id="sliderAmount"></div>
+
+</body>
+</html>

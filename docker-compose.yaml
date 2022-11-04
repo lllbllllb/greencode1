@@ -13,11 +13,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.05'
-          memory: 64M
+          cpus: '1'
+          memory: 1G
         reservations:
-          cpus: '0.05'
-          memory: 64M
+          cpus: '1'
+          memory: 1G
     restart: always
 
   slowpoke-service:

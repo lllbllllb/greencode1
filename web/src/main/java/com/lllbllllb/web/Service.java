@@ -1,18 +1,18 @@
 package com.lllbllllb.web;
 
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
+import java.util.stream.Collectors;
 
-import com.lllbllllb.common.DbEntity;
+import com.lllbllllb.common.Entity;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.springframework.web.client.RestTemplate;
 
 import static com.lllbllllb.common.Constants.SLOWPOKE_0;
-import static com.lllbllllb.common.Constants.SLOWPOKE_100;
-import static com.lllbllllb.common.Constants.SLOWPOKE_1000;
+import static com.lllbllllb.common.Constants.SLOWPOKE_10;
+import static com.lllbllllb.common.Constants.SLOWPOKE_5;
 
 @Slf4j
 @org.springframework.stereotype.Service
@@ -25,38 +25,27 @@ public class Service {
 
     private final ConfigurationProperties properties;
 
-    public Map<String, String> getStringSingle() {
-        var res = new HashMap<String, String>();
-
-        getStringStream().forEach(res::putAll);
-
-        return res;
-    }
-
-    public List<Map<String, String>> getStringStream() {
+    public List<Entity> getStringStream() {
         var rand = RandomStringUtils.randomAlphabetic(4);
+        var result = new ArrayList<Entity>();
 
-        return List.of(
-            getByPath(SLOWPOKE_1000),
-            getByPath(SLOWPOKE_100),
-            getByPath(SLOWPOKE_0),
-            getByName(rand)
-        );
+        result.add(getFromSlowpokeByPath(SLOWPOKE_5));
+        result.add(getFromSlowpokeByPath(SLOWPOKE_10));
+        result.add(getFromSlowpokeByPath(SLOWPOKE_0));
+        result.addAll(getFromDbByName(rand));
+
+        return result;
     }
 
-    @SuppressWarnings("unchecked")
-    private Map<String, String> getByPath(String path) {
-        return (Map<String, String>) restTemplate.getForEntity(properties.getSlowpokeHost() + path, Map.class)
+    private Entity getFromSlowpokeByPath(String path) {
+        return restTemplate.getForEntity(properties.getSlowpokeHost() + path, Entity.class)
             .getBody();
     }
 
-    private Map<String, String> getByName(String name) {
-        var val = repository.findAllByName(name).stream()
-            .map(DbEntity::getValue)
-            .reduce((s1, s2) -> String.join("-", s1, s2))
-            .orElse("");
-
-        return Map.of("db", val);
+    private List<Entity> getFromDbByName(String name) {
+        return repository.findAllByName(name).stream()
+            .map(dbEntity -> new Entity(name, dbEntity.getValue()))
+            .collect(Collectors.toList());
     }
 
 }

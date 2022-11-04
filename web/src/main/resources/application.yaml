@@ -1,11 +1,17 @@
+server:
+  tomcat:
+    max-connections: ${TOMCAT_MAX_CONNECTIONS:8192}
 spring:
   datasource:
     url: jdbc:postgresql://postgres-db:5432/postgres
     username: postgres
     password: postgrespw
     hikari:
-      maximum-pool-size:
-
+      maximum-pool-size: ${HIKARI_MAXIMUM_POOL_SIZE:10}
+      max-lifetime: 600000 # 10 minutes wait time
+    dbcp2:
+      test-while-idle: true
+      test-on-borrow: true
 
 web-service:
   slowpoke-host: http://slowpoke-service:8080

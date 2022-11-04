@@ -1,9 +1,10 @@
 server:
-  port: 8084
+  port: 8081
 spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/postgres
     username: postgres
     password: postgrespw
+
 web-service:
-  slowpoke-host: http://localhost:8085
+  slowpoke-host: http://localhost:8080

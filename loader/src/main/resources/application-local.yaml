@@ -1,0 +1,9 @@
+server:
+  port: 8088
+
+loader-service:
+  services:
+    web-service:
+      host: http://localhost:8081
+    webflux-service:
+      host: http://localhost:8082

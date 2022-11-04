@@ -7,10 +7,10 @@ import org.springframework.stereotype.Component;
 
 @Data
 @Component
-@org.springframework.boot.context.properties.ConfigurationProperties("web-service")
+@org.springframework.boot.context.properties.ConfigurationProperties("webflux-service")
 public class ConfigurationProperties {
 
-    private String slowpokeHost = "http://localhost:8080";
+    private String slowpokeHost;
 
     private WebClientConfig webClientConfig;
 

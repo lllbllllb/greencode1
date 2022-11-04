@@ -1,2 +1,6 @@
-server:
-  port: 8088
+loader-service:
+  services:
+    web-service:
+      host: http://web-service:8081
+    webflux-service:
+      host: http://webflux-service:8082

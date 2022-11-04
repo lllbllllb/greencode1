@@ -1,6 +1,16 @@
+spring:
+  r2dbc:
+    url: r2dbc:postgresql://postgres-db:5432/postgres
+    username: postgres
+    password: postgrespw
+
 loader-service:
   services:
     web-service:
       host: http://web-service:8081
     webflux-service:
       host: http://webflux-service:8082
+  web-client-config:
+    pending-acquire-max-count: ${PENDING_ACQUIRE_MAX_COUNT:100000}
+    max-connections: ${MAX_CONNECTIONS:100}
+    response-timeout: ${RESPONSE_TIMEOUT:10s}

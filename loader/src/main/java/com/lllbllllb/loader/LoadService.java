@@ -4,9 +4,12 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.LockSupport;
 
+import io.netty.handler.timeout.ReadTimeoutException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -22,7 +25,7 @@ import reactor.core.scheduler.Schedulers;
 @RequiredArgsConstructor
 public class LoadService {
 
-    private final Map<String, Sinks.Many<OutcomeEvent>> serviceNameToLoadEventSink = new ConcurrentHashMap<>();
+    private final Map<String, Sinks.Many<LoadQuaintResult>> serviceNameToLoadEventSink = new ConcurrentHashMap<>();
 
     private final Map<String, Disposable> serviceNameToDisposable = new ConcurrentHashMap<>();
 
@@ -30,11 +33,17 @@ public class LoadService {
 
     private final Clock clock;
 
+    private final ConfigurationProperties properties;
+
     public void receiveEvent(String serviceName, IncomeEvent event) {
         var rps = event.getRps();
 
         if (rps == 0) {
-            serviceNameToDisposable.get(serviceName).dispose();
+            var prev = serviceNameToDisposable.remove(serviceName);
+
+            if (prev != null && !prev.isDisposed()) {
+                prev.dispose();
+            }
         } else {
             var prev = serviceNameToDisposable.remove(serviceName);
 
@@ -47,29 +56,38 @@ public class LoadService {
                 .flatMap(i -> {
                     var start = clock.millis();
 
+                    var count = i + 1;
+
                     return serviceNameToWebClientMap.get(serviceName).get()
                         .retrieve()
                         .bodyToMono(List.class)
+//                        .timeout(properties.getResponseTimeout())
                         .map(entities -> {
                             var end = clock.millis();
 
-                            return new OutcomeEvent(serviceName, start, end, true);
+                            return new LoadQuaintResult(serviceName, start, end, LoadQuaintResult.Summary.SUCCESS, count);
                         })
                         .onErrorResume(e -> {
                             var end = clock.millis();
+                            var timeouts = Set.of(
+                                TimeoutException.class,
+                                io.netty.handler.timeout.TimeoutException.class,
+                                ReadTimeoutException.class
+                            );
+                            var summary = timeouts.contains(e.getClass())
+                                ? LoadQuaintResult.Summary.TIMEOUT
+                                : LoadQuaintResult.Summary.SERVER_ERROR;
 
-                            return Mono.just(new OutcomeEvent(serviceName, start, end, false));
+                            return Mono.just(new LoadQuaintResult(serviceName, start, end, summary, count));
                         });
                 })
-//                .onErrorContinue((err, i) -> log.error("{} was skipped by error", i, err))
-//                .buffer(Duration.ofMillis(100))
                 .subscribe(events -> publishOutcomeEvent(serviceName, events));
 
             serviceNameToDisposable.put(serviceName, disposable);
         }
     }
 
-    public Flux<OutcomeEvent> getLoadEventStream(String serviceName) {
+    public Flux<LoadQuaintResult> getLoadEventStream(String serviceName) {
         var loadEventSink = serviceNameToLoadEventSink.computeIfAbsent(serviceName, sn -> Sinks.many().unicast().onBackpressureBuffer());
 
         log.info("Loader for [{}] was initialized", serviceName);
@@ -89,10 +107,10 @@ public class LoadService {
         log.info("Loader for [{}] was finalized successfully", serviceName);
     }
 
-    private void publishOutcomeEvent(String serviceName, OutcomeEvent outcomeEvent) {
+    private void publishOutcomeEvent(String serviceName, LoadQuaintResult loadQuaintResult) {
         var sink = serviceNameToLoadEventSink.get(serviceName);
         if (sink != null) {
-            sink.emitNext(outcomeEvent, (signalType, emitResult) -> {
+            sink.emitNext(loadQuaintResult, (signalType, emitResult) -> {
                 if (emitResult == Sinks.EmitResult.FAIL_NON_SERIALIZED) {
                     LockSupport.parkNanos(10);
                     return true;

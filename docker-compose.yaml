@@ -18,6 +18,8 @@ services:
         reservations:
           cpus: '1'
           memory: 1G
+    volumes:
+      - ./postgres-data:/var/lib/postgresql/data
     restart: always
 
   slowpoke-service:

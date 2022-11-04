@@ -1,5 +1,10 @@
 server:
   port: 8088
+spring:
+  r2dbc:
+    url: r2dbc:postgresql://localhost:5432/postgres
+    username: postgres
+    password: postgrespw
 
 loader-service:
   services:

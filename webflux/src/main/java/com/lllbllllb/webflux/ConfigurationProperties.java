@@ -12,7 +12,7 @@ public class ConfigurationProperties {
 
     private String slowpokeHost;
 
-    private WebClientConfig webClientConfig;
+    private WebClientConfig webClientConfig = new WebClientConfig();
 
     @Data
     public static class WebClientConfig {

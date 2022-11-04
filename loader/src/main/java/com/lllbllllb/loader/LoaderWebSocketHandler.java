@@ -40,6 +40,7 @@ public class LoaderWebSocketHandler implements WebSocketHandler {
 
                 loadService.receiveEvent(serviceName, incomeEvent);
             })
+            .doOnError(err -> log.error(err.getMessage(), err))
             .doFinally(signal -> loadService.finalize(serviceName))
             .zipWith(out)
             .then();
@@ -51,8 +52,8 @@ public class LoaderWebSocketHandler implements WebSocketHandler {
     }
 
     @SneakyThrows
-    private String toJson(OutcomeEvent outcomeEvent) {
-        return objectMapper.writeValueAsString(outcomeEvent);
+    private String toJson(LoadQuaintResult loadQuaintResult) {
+        return objectMapper.writeValueAsString(loadQuaintResult);
     }
 
 }

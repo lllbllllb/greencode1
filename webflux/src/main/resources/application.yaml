@@ -9,3 +9,4 @@ webflux-service:
   web-client-config:
     pending-acquire-max-count: ${PENDING_ACQUIRE_MAX_COUNT:1000}
     max-connections: ${MAX_CONNECTIONS:12}
+    response-timeout: ${RESPONSE_TIMEOUT:4s}

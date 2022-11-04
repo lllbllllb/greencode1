@@ -2,10 +2,23 @@
 <html lang="ee">
 <head title="loader">
     <style>
-        #rpsSlide {
-            overflow: hidden;
-            width: 100%;
+        datalist {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            writing-mode: vertical-lr;
+            width: 1000px;
         }
+        option {
+            padding: 0;
+            margin: 0;
+        }
+
+        input[type="range"] {
+            overflow: hidden;
+            width: 1000px;
+        }
+
     </style>
 
     <script type="text/javascript" charset="utf-8">
@@ -39,8 +52,21 @@
 </head>
 <body>
 
-<input id="rpsSlide" type="range" min="0" max="1000" step="1" value="0">
-<div id="sliderAmount"></div>
+<label for="rpsSlide">Load, RPS:&nbsp;</label><span style="font-weight: bold" id="sliderAmount">0</span><br/>
+<input id="rpsSlide" name="rpsSlide" type="range" min="0" max="1000" step="1" value="0" list="tickmarks" />
+<datalist id="tickmarks">
+    <option value="0" label="disable" style="margin-left: 0"></option>
+    <option value="100" label="100" style="margin-left: 84px"></option>
+    <option value="200" label="200" style="margin-left: 84px"></option>
+    <option value="300" label="300" style="margin-left: 81px"></option>
+    <option value="400" label="400" style="margin-left: 82px"></option>
+    <option value="500" label="500" style="margin-left: 82px"></option>
+    <option value="600" label="600" style="margin-left: 82px"></option>
+    <option value="700" label="700" style="margin-left: 82px"></option>
+    <option value="800" label="800" style="margin-left: 82px"></option>
+    <option value="900" label="900" style="margin-left: 83px"></option>
+    <option value="1000" label="1000" style="margin-left: 90px"></option>
+</datalist>
 
 </body>
 </html>

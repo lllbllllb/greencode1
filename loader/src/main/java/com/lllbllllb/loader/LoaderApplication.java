@@ -43,21 +43,21 @@ public class LoaderApplication {
     @Bean
     static Map<String, WebClient> serviceNameToWebClientMap(ConfigurationProperties properties) {
         var webClientConfig = properties.getWebClientConfig();
-        // https://stackoverflow.com/a/68658096
-        var connectionProvider = ConnectionProvider.builder("customConnectionPool")
-            .maxConnections(webClientConfig.getMaxConnections())
-            .pendingAcquireMaxCount(webClientConfig.getPendingAcquireMaxCount())
-            .build();
-        var client = HttpClient.create(connectionProvider)
-            .responseTimeout(webClientConfig.getResponseTimeout());
-        var clientHttpConnector = new ReactorClientHttpConnector(client);
 
         return properties.getServices().entrySet().stream()
             .collect(Collectors.toMap(Map.Entry::getKey, entry -> {
                 var host = entry.getValue().getHost();
+                // https://stackoverflow.com/a/68658096
+                var connectionProvider = ConnectionProvider.builder("loaderConnectionPool-" + entry.getKey())
+                    .maxConnections(webClientConfig.getMaxConnections())
+                    .pendingAcquireMaxCount(webClientConfig.getPendingAcquireMaxCount())
+                    .pendingAcquireTimeout(webClientConfig.getResponseTimeout())
+                    .build();
+                var client = HttpClient.create(connectionProvider);
+                var clientHttpConnector = new ReactorClientHttpConnector(client);
 
                 return WebClient.builder()
-                    .baseUrl(host + STRING_STREAM_PATH)
+                    .baseUrl(host)
                     .clientConnector(clientHttpConnector)
                     .build();
             }));

@@ -29,7 +29,7 @@ public class ConfigurationProperties {
 
         private int maxConnections = 42;
 
-        private Duration responseTimeout = Duration.ofSeconds(10);
+        private Duration responseTimeout = Duration.ofSeconds(20);
 
     }
 }

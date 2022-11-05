@@ -2,7 +2,6 @@ package com.lllbllllb.loader;
 
 import java.time.Clock;
 import java.time.Duration;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -19,6 +18,9 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Schedulers;
+import reactor.netty.internal.shaded.reactor.pool.PoolAcquireTimeoutException;
+
+import static com.lllbllllb.common.Constants.STRING_STREAM_PATH;
 
 @Slf4j
 @Service
@@ -52,36 +54,40 @@ public class LoadService {
             }
 
             var disposable = Flux.interval(Duration.ofNanos(1_000_000_000L / rps))
-                .parallel().runOn(Schedulers.boundedElastic())
+                .parallel().runOn(Schedulers.newBoundedElastic(24, Integer.MAX_VALUE, "loadServiceBoundedElastic-24-0x7fffffff"))
                 .flatMap(i -> {
                     var start = clock.millis();
 
                     var count = i + 1;
 
                     return serviceNameToWebClientMap.get(serviceName).get()
+                        .uri(STRING_STREAM_PATH)
                         .retrieve()
-                        .bodyToMono(List.class)
-//                        .timeout(properties.getResponseTimeout())
+                        .toBodilessEntity()
                         .map(entities -> {
                             var end = clock.millis();
 
                             return new LoadQuaintResult(serviceName, start, end, LoadQuaintResult.Summary.SUCCESS, count);
                         })
                         .onErrorResume(e -> {
+                            log.error(e.getMessage(), e);
+
                             var end = clock.millis();
                             var timeouts = Set.of(
                                 TimeoutException.class,
                                 io.netty.handler.timeout.TimeoutException.class,
-                                ReadTimeoutException.class
+                                ReadTimeoutException.class,
+                                PoolAcquireTimeoutException.class,
+                                reactor.pool.PoolAcquireTimeoutException.class
                             );
-                            var summary = timeouts.contains(e.getClass())
+                            var summary = timeouts.contains(e.getClass()) || timeouts.contains(e.getCause().getClass())
                                 ? LoadQuaintResult.Summary.TIMEOUT
                                 : LoadQuaintResult.Summary.SERVER_ERROR;
 
                             return Mono.just(new LoadQuaintResult(serviceName, start, end, summary, count));
                         });
                 })
-                .subscribe(events -> publishOutcomeEvent(serviceName, events));
+                .subscribe(events -> publishOutcomeEvent(serviceName, events, rps));
 
             serviceNameToDisposable.put(serviceName, disposable);
         }
@@ -107,8 +113,14 @@ public class LoadService {
         log.info("Loader for [{}] was finalized successfully", serviceName);
     }
 
-    private void publishOutcomeEvent(String serviceName, LoadQuaintResult loadQuaintResult) {
+    private void publishOutcomeEvent(String serviceName, LoadQuaintResult loadQuaintResult, int rps) {
         var sink = serviceNameToLoadEventSink.get(serviceName);
+        var freq = 50;
+
+        if (rps > freq && loadQuaintResult.getTotalCount() % (rps / freq) != 0) {
+            return;
+        }
+
         if (sink != null) {
             sink.emitNext(loadQuaintResult, (signalType, emitResult) -> {
                 if (emitResult == Sinks.EmitResult.FAIL_NON_SERIALIZED) {

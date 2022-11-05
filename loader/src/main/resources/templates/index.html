@@ -5,10 +5,11 @@
         datalist {
             display: flex;
             flex-direction: column;
-            justify-content: flex-start;
+            justify-content: space-between;
             writing-mode: vertical-lr;
-            width: 1000px;
+            width: 100%;
         }
+
         option {
             padding: 0;
             margin: 0;
@@ -16,57 +17,179 @@
 
         input[type="range"] {
             overflow: hidden;
-            width: 1000px;
+            width: 100%;
+        }
+
+        .container {
+            display: flex;
+            justify-content: center;
+            width: 100%;
         }
 
     </style>
 
+    <!-- import -->
+    <!--    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>-->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3"></script>
+    <!-- import -->
+
     <script type="text/javascript" charset="utf-8">
-        const loadWebServiceWs = new WebSocket("ws://localhost:8088/websocket/load?web-service", []);
-        loadWebServiceWs.onmessage = (event) => console.log(event.data)
 
-        const loadWebfluxServiceWs = new WebSocket("ws://localhost:8088/websocket/load?webflux-service", []);
-        loadWebfluxServiceWs.onmessage = (event) => console.log(event.data)
-
-        function loadServices(rps) {
-            const msg = {
-                rps: rps
-            }
-
-            loadWebServiceWs.send(JSON.stringify(msg))
-            loadWebfluxServiceWs.send(JSON.stringify(msg))
-        }
-
-        window.onload = (event) => {
-            const rpsSlide = document.getElementById('rpsSlide');
-            const rpsSliderDiv = document.getElementById("sliderAmount");
-
-            rpsSlide.onchange = function () {
-                rpsSliderDiv.innerHTML = this.value;
-                loadServices(this.value);
-            }
-        };
-
+        //        const loadWebServiceWs = new WebSocket("ws://localhost:8088/websocket/load?web-service", []);
+        //        loadWebServiceWs.onmessage = (event) => console.log(event.data)
+        //
+        //        const loadWebfluxServiceWs = new WebSocket("ws://localhost:8088/websocket/load?webflux-service", []);
+        //        loadWebfluxServiceWs.onmessage = (event) => console.log(event.data)
+        //
+        //        function loadServices(rps) {
+        //            const msg = {
+        //                rps: rps
+        //            }
+        //
+        //            loadWebServiceWs.send(JSON.stringify(msg))
+        //            loadWebfluxServiceWs.send(JSON.stringify(msg))
+        //        }
+        //
+        //        window.onload = (event) => {
+        //            const rpsSlide = document.getElementById('rpsSlide');
+        //            const rpsSliderDiv = document.getElementById("sliderAmount");
+        //
+        //            rpsSlide.onchange = function () {
+        //                rpsSliderDiv.innerHTML = this.value;
+        //                loadServices(this.value);
+        //            }
+        //        };
 
     </script>
 </head>
 <body>
 
-<label for="rpsSlide">Load, RPS:&nbsp;</label><span style="font-weight: bold" id="sliderAmount">0</span><br/>
-<input id="rpsSlide" name="rpsSlide" type="range" min="0" max="1000" step="1" value="0" list="tickmarks" />
+<div class="container">
+    <label for="rpsSlide">Load, RPS:&nbsp;</label><span style="font-weight: bold" id="sliderAmount">0</span><br/>
+</div>
+<input id="rpsSlide" name="rpsSlide" type="range" min="0" max="1000" step="5" value="0" list="tickmarks"/>
+
 <datalist id="tickmarks">
-    <option value="0" label="disable" style="margin-left: 0"></option>
-    <option value="100" label="100" style="margin-left: 84px"></option>
-    <option value="200" label="200" style="margin-left: 84px"></option>
-    <option value="300" label="300" style="margin-left: 81px"></option>
-    <option value="400" label="400" style="margin-left: 82px"></option>
-    <option value="500" label="500" style="margin-left: 82px"></option>
-    <option value="600" label="600" style="margin-left: 82px"></option>
-    <option value="700" label="700" style="margin-left: 82px"></option>
-    <option value="800" label="800" style="margin-left: 82px"></option>
-    <option value="900" label="900" style="margin-left: 83px"></option>
-    <option value="1000" label="1000" style="margin-left: 90px"></option>
+    <option value="0" label="disable"></option>
+    <option value="100" label="100"></option>
+    <option value="200" label="200"></option>
+    <option value="300" label="300"></option>
+    <option value="400" label="400"></option>
+    <option value="500" label="500"></option>
+    <option value="600" label="600"></option>
+    <option value="700" label="700"></option>
+    <option value="800" label="800"></option>
+    <option value="900" label="900"></option>
+    <option value="1000" label="1000"></option>
 </datalist>
+
+<!-- chart -->
+<canvas id="lineChart2" width="400" height="100"></canvas>
+<script type="text/javascript" charset="UTF-8">
+    const hosts = [];
+
+    const loadWebServiceWs = new WebSocket("ws://localhost:8088/websocket/load?web-service", []);
+    loadWebServiceWs.onmessage = (event) => {
+        updateLineChart(JSON.parse(event.data));
+    }
+
+    const loadWebfluxServiceWs = new WebSocket("ws://localhost:8088/websocket/load?webflux-service", []);
+
+    // loadWebfluxServiceWs.onmessage = (event) => console.log(event.data)
+
+    function loadServices(rps) {
+        const msg = {
+            rps: rps
+        }
+
+        loadWebServiceWs.send(JSON.stringify(msg))
+        loadWebfluxServiceWs.send(JSON.stringify(msg))
+    }
+
+    const xValues = [];
+    const totalCount = [];
+    const responseTime = [];
+
+    window.onload = (event) => {
+        const rpsSlide = document.getElementById('rpsSlide');
+        const rpsSliderDiv = document.getElementById("sliderAmount");
+
+        rpsSlide.onchange = function () {
+            rpsSliderDiv.innerHTML = this.value;
+            loadServices(this.value);
+        }
+    };
+
+    // -- --
+
+    const lineChart = new Chart("lineChart2", {
+        type: "line",
+        data: {
+            labels: xValues,
+            datasets: [
+                {
+                    label: 'Response time, ms',
+                    fill: true,
+                    borderColor: "rgba(0,255,0,1)",
+                    backgroundColor: "rgba(0,255,0,0.5)",
+                    pointStyle: 'circle',
+                    pointRadius: 8,
+                    pointHoverRadius: 15,
+                    data: responseTime,
+                    yAxisID: "axisResponseTime"
+                }
+            ]
+        },
+        options: {
+            legend: {display: false},
+            title: {
+                display: true,
+                text: "y = x * 2 + 7",
+                fontSize: 16
+            },
+            scales: {
+                axisResponseTime: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    text: 'ewewe'
+                    // grid: {
+                    //     drawOnChartArea: false, // only want the grid lines for one axis to show up
+                    // },
+                },
+            }
+        }
+    });
+
+    function updateLineChart(event) {
+        // responseTime.push(event["endMs"] - event["startMs"]);
+        // summaryVal.push(event["summary"]);
+        safePush(responseTime, event["endMs"] - event["startMs"]);
+        safePush(xValues, event["summary"] + ' - ' + event["totalCount"]);
+
+        lineChart.update();
+
+        // lineChart.data.datasets[0].borderColor = getRandomColor();
+    }
+
+    function safePush(arr, element, maxSize = 100) {
+        if (arr.length > maxSize) {
+            arr.shift();
+        }
+
+        arr.push(element);
+    }
+
+    function getRandomColor() {
+        var letters = '0123456789ABCDEF';
+        var color = '#';
+        for (var i = 0; i < 6; i++) {
+            color += letters[Math.floor(Math.random() * 16)];
+        }
+        return color;
+    }
+
+</script>
 
 </body>
 </html>

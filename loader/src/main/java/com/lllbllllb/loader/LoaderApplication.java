@@ -2,21 +2,20 @@ package com.lllbllllb.loader;
 
 import java.time.Clock;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
-import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.web.reactive.HandlerAdapter;
 import org.springframework.web.reactive.HandlerMapping;
-import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.server.RouterFunction;
+import org.springframework.web.reactive.function.server.ServerResponse;
 import org.springframework.web.reactive.handler.SimpleUrlHandlerMapping;
 import org.springframework.web.reactive.socket.server.support.WebSocketHandlerAdapter;
-import reactor.netty.http.client.HttpClient;
-import reactor.netty.resources.ConnectionProvider;
 
-import static com.lllbllllb.common.Constants.STRING_STREAM_PATH;
+import static org.springframework.web.reactive.function.server.RequestPredicates.POST;
+import static org.springframework.web.reactive.function.server.RouterFunctions.route;
+import static org.springframework.web.reactive.function.server.ServerResponse.noContent;
 
 @SpringBootApplication
 public class LoaderApplication {
@@ -41,25 +40,12 @@ public class LoaderApplication {
     }
 
     @Bean
-    static Map<String, WebClient> serviceNameToWebClientMap(ConfigurationProperties properties) {
-        var webClientConfig = properties.getWebClientConfig();
+    static RouterFunction<ServerResponse> loaderRestController(LoadService loadService) {
+        return route(POST("/prey"), request -> request.bodyToMono(Prey.class)
+            .flatMap((Prey prey) -> {
+                loadService.registerPrey(prey);
 
-        return properties.getServices().entrySet().stream()
-            .collect(Collectors.toMap(Map.Entry::getKey, entry -> {
-                var host = entry.getValue().getHost();
-                // https://stackoverflow.com/a/68658096
-                var connectionProvider = ConnectionProvider.builder("loaderConnectionPool-" + entry.getKey())
-                    .maxConnections(webClientConfig.getMaxConnections())
-                    .pendingAcquireMaxCount(webClientConfig.getPendingAcquireMaxCount())
-                    .pendingAcquireTimeout(webClientConfig.getResponseTimeout())
-                    .build();
-                var client = HttpClient.create(connectionProvider);
-                var clientHttpConnector = new ReactorClientHttpConnector(client);
-
-                return WebClient.builder()
-                    .baseUrl(host)
-                    .clientConnector(clientHttpConnector)
-                    .build();
+                return noContent().build();
             }));
     }
 

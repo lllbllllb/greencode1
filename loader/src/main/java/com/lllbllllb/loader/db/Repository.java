@@ -1,4 +1,4 @@
-package com.lllbllllb.loader;
+package com.lllbllllb.loader.db;
 
 import com.lllbllllb.common.DbEntity;
 import org.springframework.data.r2dbc.repository.R2dbcRepository;

@@ -20,8 +20,6 @@ import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Schedulers;
 import reactor.netty.internal.shaded.reactor.pool.PoolAcquireTimeoutException;
 
-import static com.lllbllllb.common.Constants.STRING_STREAM_PATH;
-
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -31,11 +29,13 @@ public class LoadService {
 
     private final Map<String, Disposable> serviceNameToDisposable = new ConcurrentHashMap<>();
 
-    private final Map<String, WebClient> serviceNameToWebClientMap;
+    private final Map<String, WebClient> preyNameToWebClientMap = new ConcurrentHashMap<>();
 
     private final Clock clock;
 
     private final ConfigurationProperties properties;
+
+    private final WebClientFactory webClientFactory;
 
     public void receiveEvent(String serviceName, IncomeEvent event) {
         var rps = event.getRps();
@@ -53,15 +53,17 @@ public class LoadService {
                 prev.dispose();
             }
 
+            var loaderConfig = properties.getLoaderConfig();
+            var threadCap = loaderConfig.getThreadCap();
+            var queuedTaskCap = loaderConfig.getQueuedTaskCap();
+            var schedulerName = String.format("loadServiceBoundedElastic-%s-%s", threadCap, queuedTaskCap);
             var disposable = Flux.interval(Duration.ofNanos(1_000_000_000L / rps))
-                .parallel().runOn(Schedulers.newBoundedElastic(24, Integer.MAX_VALUE, "loadServiceBoundedElastic-24-0x7fffffff"))
+                .parallel().runOn(Schedulers.newBoundedElastic(threadCap, queuedTaskCap, schedulerName))
                 .flatMap(i -> {
                     var start = clock.millis();
-
                     var count = i + 1;
 
-                    return serviceNameToWebClientMap.get(serviceName).get()
-                        .uri(STRING_STREAM_PATH)
+                    return preyNameToWebClientMap.get(serviceName).get()
                         .retrieve()
                         .toBodilessEntity()
                         .map(entities -> {
@@ -111,6 +113,13 @@ public class LoadService {
         }
 
         log.info("Loader for [{}] was finalized successfully", serviceName);
+    }
+
+    public void registerPrey(Prey prey) {
+        var preyName = prey.getName();
+        var webClient = webClientFactory.create(prey.getPath(), preyName);
+
+        preyNameToWebClientMap.put(preyName, webClient);
     }
 
     private void publishOutcomeEvent(String serviceName, LoadQuaintResult loadQuaintResult, int rps) {

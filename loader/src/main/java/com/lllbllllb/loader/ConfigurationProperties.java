@@ -1,7 +1,6 @@
 package com.lllbllllb.loader;
 
 import java.time.Duration;
-import java.util.Map;
 
 import lombok.Data;
 import org.springframework.stereotype.Component;
@@ -11,16 +10,9 @@ import org.springframework.stereotype.Component;
 @org.springframework.boot.context.properties.ConfigurationProperties("loader-service")
 public class ConfigurationProperties {
 
-    private Map<String, Service> services;
-
     private WebClientConfig webClientConfig = new WebClientConfig();
 
-    @Data
-    public static class Service {
-
-        private String host;
-
-    }
+    private LoaderConfig loaderConfig = new LoaderConfig();
 
     @Data
     public static class WebClientConfig {
@@ -32,4 +24,14 @@ public class ConfigurationProperties {
         private Duration responseTimeout = Duration.ofSeconds(20);
 
     }
+
+    @Data
+    public static class LoaderConfig {
+
+        private int threadCap = 24;
+
+        private int queuedTaskCap = 0x7fffffff;
+
+    }
+
 }

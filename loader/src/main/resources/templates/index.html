@@ -33,34 +33,6 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3"></script>
     <!-- import -->
 
-    <script type="text/javascript" charset="utf-8">
-
-        //        const loadWebServiceWs = new WebSocket("ws://localhost:8088/websocket/load?web-service", []);
-        //        loadWebServiceWs.onmessage = (event) => console.log(event.data)
-        //
-        //        const loadWebfluxServiceWs = new WebSocket("ws://localhost:8088/websocket/load?webflux-service", []);
-        //        loadWebfluxServiceWs.onmessage = (event) => console.log(event.data)
-        //
-        //        function loadServices(rps) {
-        //            const msg = {
-        //                rps: rps
-        //            }
-        //
-        //            loadWebServiceWs.send(JSON.stringify(msg))
-        //            loadWebfluxServiceWs.send(JSON.stringify(msg))
-        //        }
-        //
-        //        window.onload = (event) => {
-        //            const rpsSlide = document.getElementById('rpsSlide');
-        //            const rpsSliderDiv = document.getElementById("sliderAmount");
-        //
-        //            rpsSlide.onchange = function () {
-        //                rpsSliderDiv.innerHTML = this.value;
-        //                loadServices(this.value);
-        //            }
-        //        };
-
-    </script>
 </head>
 <body>
 
@@ -84,31 +56,15 @@
 </datalist>
 
 <!-- chart -->
-<canvas id="lineChart2" width="400" height="100"></canvas>
+<div id="chartContainer"></div>
+
 <script type="text/javascript" charset="UTF-8">
-    const hosts = [];
+    const hostsToLoad = {};
+    hostsToLoad["web"] = "http://localhost:8081/string/stream";
+    hostsToLoad["webflux"] = "http://localhost:8082/string/stream";
 
-    const loadWebServiceWs = new WebSocket("ws://localhost:8088/websocket/load?web-service", []);
-    loadWebServiceWs.onmessage = (event) => {
-        updateLineChart(JSON.parse(event.data));
-    }
-
-    const loadWebfluxServiceWs = new WebSocket("ws://localhost:8088/websocket/load?webflux-service", []);
-
-    // loadWebfluxServiceWs.onmessage = (event) => console.log(event.data)
-
-    function loadServices(rps) {
-        const msg = {
-            rps: rps
-        }
-
-        loadWebServiceWs.send(JSON.stringify(msg))
-        loadWebfluxServiceWs.send(JSON.stringify(msg))
-    }
-
-    const xValues = [];
-    const totalCount = [];
-    const responseTime = [];
+    const nameToWsMap = {};
+    const nameToLineChartMap = {};
 
     window.onload = (event) => {
         const rpsSlide = document.getElementById('rpsSlide');
@@ -118,58 +74,101 @@
             rpsSliderDiv.innerHTML = this.value;
             loadServices(this.value);
         }
+
+
+        for (const name in hostsToLoad) {
+            const host = hostsToLoad[name];
+            fetch("http://localhost:8088/prey", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: `{
+                "name": "${name}",
+                "path": "${host}"
+            }`
+            }).then(date => {
+                connectToWs(name);
+                createNamedLineChart(name);
+            })
+        }
     };
 
-    // -- --
 
-    const lineChart = new Chart("lineChart2", {
-        type: "line",
-        data: {
-            labels: xValues,
-            datasets: [
-                {
-                    label: 'Response time, ms',
-                    fill: true,
-                    borderColor: "rgba(0,255,0,1)",
-                    backgroundColor: "rgba(0,255,0,0.5)",
-                    pointStyle: 'circle',
-                    pointRadius: 8,
-                    pointHoverRadius: 15,
-                    data: responseTime,
-                    yAxisID: "axisResponseTime"
-                }
-            ]
-        },
-        options: {
-            legend: {display: false},
-            title: {
-                display: true,
-                text: "y = x * 2 + 7",
-                fontSize: 16
-            },
-            scales: {
-                axisResponseTime: {
-                    type: 'linear',
-                    display: true,
-                    position: 'right',
-                    text: 'ewewe'
-                    // grid: {
-                    //     drawOnChartArea: false, // only want the grid lines for one axis to show up
-                    // },
-                },
-            }
+    function connectToWs(name) {
+        const loadServiceWs = new WebSocket("ws://localhost:8088/websocket/load?" + name, []);
+        nameToWsMap[name] = loadServiceWs;
+        loadServiceWs.onmessage = (event) => {
+            updateNamedLineChart(name, JSON.parse(event.data));
         }
-    });
+    }
 
-    function updateLineChart(event) {
-        // responseTime.push(event["endMs"] - event["startMs"]);
-        // summaryVal.push(event["summary"]);
-        safePush(responseTime, event["endMs"] - event["startMs"]);
-        safePush(xValues, event["summary"] + ' - ' + event["totalCount"]);
+    function createNamedLineChart(name) {
+        addCanvas(name);
+        const chartContainer = {};
+        const xValues = [];
+        const responseTime = [];
+        chartContainer["xValues"] = xValues;
+        chartContainer["responseTime"] = responseTime;
+        chartContainer["lineChart"] = new Chart(name + "_lineChart", {
+            type: "line",
+            data: {
+                labels: xValues,
+                datasets: [
+                    {
+                        label: name + ' | Response time, ms',
+                        fill: true,
+                        borderColor: getRandomColor(),
+                        backgroundColor: getRandomColor(),
+                        pointStyle: 'circle',
+                        pointRadius: 8,
+                        pointHoverRadius: 15,
+                        data: responseTime,
+                        yAxisID: "axisResponseTime"
+                    }
+                ]
+            },
+            options: {
+                legend: {display: false},
+                title: {
+                    display: true,
+                    text: "y = x * 2 + 7",
+                    fontSize: 16
+                },
+                scales: {
+                    axisResponseTime: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        text: 'ewewe'
+                        // grid: {
+                        //     drawOnChartArea: false, // only want the grid lines for one axis to show up
+                        // },
+                    },
+                }
+            }
+        });
 
-        lineChart.update();
+        nameToLineChartMap[name] = chartContainer;
+    }
 
-        // lineChart.data.datasets[0].borderColor = getRandomColor();
+    function updateNamedLineChart(name, complain) {
+        const chartContainer = nameToLineChartMap[name]
+
+        safePush(chartContainer["responseTime"], complain["endMs"] - complain["startMs"]);
+        safePush(chartContainer["xValues"], complain["summary"] + ' - ' + complain["totalCount"]);
+
+        chartContainer["lineChart"].update();
+    }
+
+    function loadServices(rps) {
+        const msg = {
+            rps: rps
+        }
+
+        for (const name in hostsToLoad) {
+            nameToWsMap[name].send(JSON.stringify(msg));
+        }
     }
 
     function safePush(arr, element, maxSize = 100) {
@@ -180,15 +179,23 @@
         arr.push(element);
     }
 
+    function addCanvas(name) {
+        const newCanvas = document.createElement("canvas");
+        newCanvas.setAttribute("id", name + "_lineChart");
+        newCanvas.setAttribute("width", "100%");
+        newCanvas.setAttribute("height", "22");
+        const container = document.getElementById("chartContainer");
+        container.appendChild(newCanvas);
+    }
+
     function getRandomColor() {
-        var letters = '0123456789ABCDEF';
-        var color = '#';
-        for (var i = 0; i < 6; i++) {
+        const letters = '0123456789ABCDEF';
+        let color = '#';
+        for (let i = 0; i < 6; i++) {
             color += letters[Math.floor(Math.random() * 16)];
         }
         return color;
     }
-
 </script>
 
 </body>

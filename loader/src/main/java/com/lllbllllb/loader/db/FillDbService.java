@@ -1,4 +1,4 @@
-package com.lllbllllb.loader;
+package com.lllbllllb.loader.db;
 
 import javax.annotation.PostConstruct;
 

@@ -72,8 +72,6 @@ public class LoadService {
                             return new LoadQuaintResult(serviceName, start, end, LoadQuaintResult.Summary.SUCCESS, count);
                         })
                         .onErrorResume(e -> {
-                            log.error(e.getMessage(), e);
-
                             var end = clock.millis();
                             var timeouts = Set.of(
                                 TimeoutException.class,
@@ -82,11 +80,14 @@ public class LoadService {
                                 PoolAcquireTimeoutException.class,
                                 reactor.pool.PoolAcquireTimeoutException.class
                             );
-                            var summary = timeouts.contains(e.getClass()) || timeouts.contains(e.getCause().getClass())
-                                ? LoadQuaintResult.Summary.TIMEOUT
-                                : LoadQuaintResult.Summary.SERVER_ERROR;
 
-                            return Mono.just(new LoadQuaintResult(serviceName, start, end, summary, count));
+                            if (timeouts.contains(e.getClass()) || timeouts.contains(e.getCause().getClass())) {
+                                return Mono.just(new LoadQuaintResult(serviceName, start, end, LoadQuaintResult.Summary.TIMEOUT, count));
+                            } else {
+                                log.error(e.getMessage(), e);
+
+                                return Mono.just(new LoadQuaintResult(serviceName, start, end, LoadQuaintResult.Summary.SERVER_ERROR, count));
+                            }
                         });
                 })
                 .subscribe(events -> publishOutcomeEvent(serviceName, events, rps));

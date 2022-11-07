@@ -63,6 +63,11 @@
     hostsToLoad["web"] = "http://localhost:8081/string/stream";
     hostsToLoad["webflux"] = "http://localhost:8082/string/stream";
 
+    const colors = [];
+    for (let i = 0; i < 10; i++) {
+        colors[i] = getRandomColor();
+    }
+
     const nameToWsMap = {};
     const nameToLineChartMap = {};
 
@@ -108,8 +113,14 @@
         const chartContainer = {};
         const xValues = [];
         const responseTime = [];
+        const successCount = [];
+        const timeoutCount = [];
+        const errorCount = [];
         chartContainer["xValues"] = xValues;
         chartContainer["responseTime"] = responseTime;
+        chartContainer["successCount"] = successCount;
+        chartContainer["timeoutCount"] = timeoutCount;
+        chartContainer["errorCount"] = errorCount;
         chartContainer["lineChart"] = new Chart(name + "_lineChart", {
             type: "line",
             data: {
@@ -117,14 +128,47 @@
                 datasets: [
                     {
                         label: name + ' | Response time, ms',
-                        fill: true,
-                        borderColor: getRandomColor(),
-                        backgroundColor: getRandomColor(),
+                        fill: false,
+                        borderColor: colors[0],
+                        backgroundColor: colors[1],
                         pointStyle: 'circle',
                         pointRadius: 8,
                         pointHoverRadius: 15,
                         data: responseTime,
                         yAxisID: "axisResponseTime"
+                    },
+                    {
+                        label: name + ' | success count',
+                        fill: false,
+                        borderColor: colors[2],
+                        backgroundColor: colors[3],
+                        pointStyle: 'circle',
+                        pointRadius: 8,
+                        pointHoverRadius: 15,
+                        data: successCount,
+                        yAxisID: "axisSuccessCount"
+                    },
+                    {
+                        label: name + ' | timeout count',
+                        fill: false,
+                        borderColor: colors[4],
+                        backgroundColor: colors[5],
+                        pointStyle: 'circle',
+                        pointRadius: 8,
+                        pointHoverRadius: 15,
+                        data: timeoutCount,
+                        yAxisID: "axisTimeoutCount"
+                    },
+                    {
+                        label: name + ' | error count',
+                        fill: false,
+                        borderColor: colors[6],
+                        backgroundColor: colors[7],
+                        pointStyle: 'circle',
+                        pointRadius: 8,
+                        pointHoverRadius: 15,
+                        data: errorCount,
+                        yAxisID: "axisErrorsCount"
                     }
                 ]
             },
@@ -132,7 +176,7 @@
                 legend: {display: false},
                 title: {
                     display: true,
-                    text: "y = x * 2 + 7",
+                    text: "p = np",
                     fontSize: 16
                 },
                 scales: {
@@ -140,10 +184,37 @@
                         type: 'linear',
                         display: true,
                         position: 'right',
-                        text: 'ewewe'
+                        text: 'response time'
                         // grid: {
                         //     drawOnChartArea: false, // only want the grid lines for one axis to show up
                         // },
+                    },
+                    axisTimeoutCount: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        text: 'errors count',
+                        grid: {
+                            drawOnChartArea: false, // only want the grid lines for one axis to show up
+                        },
+                    },
+                    axisErrorsCount: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        text: 'errors count',
+                        grid: {
+                            drawOnChartArea: false, // only want the grid lines for one axis to show up
+                        },
+                    },
+                    axisSuccessCount: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        text: 'success count',
+                        grid: {
+                            drawOnChartArea: false, // only want the grid lines for one axis to show up
+                        },
                     },
                 }
             }
@@ -152,13 +223,37 @@
         nameToLineChartMap[name] = chartContainer;
     }
 
-    function updateNamedLineChart(name, complain) {
-        const chartContainer = nameToLineChartMap[name]
+    function updateNamedLineChart(name, report) {
+        const chartContainer = nameToLineChartMap[name];
+        safePush(chartContainer["responseTime"], report["endMs"] - report["startMs"]);
+        const summary = report["summary"];
+        safePush(chartContainer["xValues"], summary + ' - ' + report["totalCount"]);
 
-        safePush(chartContainer["responseTime"], complain["endMs"] - complain["startMs"]);
-        safePush(chartContainer["xValues"], complain["summary"] + ' - ' + complain["totalCount"]);
+        if (summary === "SUCCESS") {
+            const numbers = chartContainer["successCount"];
+            const nextVal = getNextValue(numbers);
+            safePush(numbers, nextVal);
+        } else if (summary === "TIMEOUT") {
+            const numbers = chartContainer["timeoutCount"];
+            const nextVal = getNextValue(numbers);
+            safePush(numbers, nextVal);
+        } else if (summary === "ERROR") {
+            const numbers = chartContainer["errorCount"];
+            const nextVal = getNextValue(numbers);
+            safePush(numbers, nextVal);
+        }
 
         chartContainer["lineChart"].update();
+    }
+
+    function getNextValue(arr) {
+        const size = arr.length;
+
+        if (size === 0) {
+            return 1;
+        }
+
+        return arr[arr.length - 1] + 1;
     }
 
     function loadServices(rps) {

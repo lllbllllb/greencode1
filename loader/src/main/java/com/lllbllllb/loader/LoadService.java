@@ -2,6 +2,10 @@ package com.lllbllllb.loader;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -30,6 +34,8 @@ public class LoadService {
     private final Map<String, Disposable> serviceNameToDisposable = new ConcurrentHashMap<>();
 
     private final Map<String, WebClient> preyNameToWebClientMap = new ConcurrentHashMap<>();
+
+    private final Collection<Prey> preysList = Collections.synchronizedCollection(new LinkedHashSet<>());
 
     private final Clock clock;
 
@@ -121,6 +127,16 @@ public class LoadService {
         var webClient = webClientFactory.create(prey.getPath(), preyName);
 
         preyNameToWebClientMap.put(preyName, webClient);
+        preysList.add(prey);
+    }
+
+    public List<Prey> getAllPreys() {
+        return List.copyOf(preysList);
+    }
+
+    public void deletePrey(String preyName) {
+        preyNameToWebClientMap.remove(preyName);
+        preysList.removeIf(prey -> prey.getName().equals(preyName));
     }
 
     private void publishOutcomeEvent(String serviceName, LoadQuaintResult loadQuaintResult, int rps) {

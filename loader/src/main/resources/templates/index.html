@@ -2,13 +2,6 @@
 <html lang="ee">
 <head title="loader">
     <style>
-        :root {
-            --bs-list-group-item-padding-y: 0;
-            --bs-list-group-item-padding-x: 0;
-            --list-group-item-padding-x: 0;
-            --list-group-item-padding-y: 0;
-        }
-
         datalist {
             display: flex;
             flex-direction: column;
@@ -69,7 +62,7 @@
         };
 
         function renderPrey(name, url) {
-            const element = document.getElementById("sparePartListElement").cloneNode(true);
+            const element = document.getElementById("sparePartListElementAccord").cloneNode(true);
             element.setAttribute("id", "prey_" + name);
 
             const nameText = document.createTextNode(name);
@@ -577,6 +570,30 @@
 
             <div class="col">
                 <div id="sparePartUrl"></div>
+            </div>
+
+            <div class="col-md-1 d-flex justify-content-end">
+                <button id="sparePartDeleteButton" type="button" class="btn btn-outline-danger">
+                    <svg id="svgDash" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-dash" viewBox="0 0 16 16">
+                        <path d="M4 8a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7A.5.5 0 0 1 4 8z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </li>
+
+    <li id="sparePartListElementAccord" class="container list-group-item">
+        <div class="row">
+            <div class="accordion accordion-flush col" id="accordionFlushExample">
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="flush-headingOne">
+                        <button id="sparePartName" class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#flush-collapseOne" aria-expanded="false" aria-controls="flush-collapseOne">
+                        </button>
+                    </h2>
+                    <div id="flush-collapseOne" class="accordion-collapse collapse" aria-labelledby="flush-headingOne" data-bs-parent="#accordionFlushExample">
+                        <div id="sparePartUrl" class="accordion-body"></div>
+                    </div>
+                </div>
             </div>
 
             <div class="col-md-1 d-flex justify-content-end">

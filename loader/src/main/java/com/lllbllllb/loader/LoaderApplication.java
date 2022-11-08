@@ -13,6 +13,7 @@ import org.springframework.web.reactive.function.server.ServerResponse;
 import org.springframework.web.reactive.handler.SimpleUrlHandlerMapping;
 import org.springframework.web.reactive.socket.server.support.WebSocketHandlerAdapter;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import static org.springframework.web.reactive.function.server.RequestPredicates.DELETE;
 import static org.springframework.web.reactive.function.server.RequestPredicates.GET;
@@ -45,22 +46,24 @@ public class LoaderApplication {
 
     @Bean
     static RouterFunction<ServerResponse> loaderRestController(LoadService loadService) {
-        var url = "/prey";
+        var urlPrey = "/prey";
+        var urlRps = "/loadParameters";
 
-        return route(POST(url), request -> request.bodyToMono(Prey.class)
+        return route(POST(urlPrey), request -> request.bodyToMono(Prey.class)
             .flatMap((Prey prey) -> {
                 loadService.registerPrey(prey);
 
                 return noContent().build();
             }))
-            .and(route(GET(url), request -> ok().body(Flux.fromIterable(loadService.getAllPreys()), Prey.class)))
-            .and(route(DELETE(url + "/{name}"), request -> {
+            .and(route(GET(urlPrey), request -> ok().body(Flux.fromIterable(loadService.getAllPreys()), Prey.class)))
+            .and(route(DELETE(urlPrey + "/{name}"), request -> {
                 var name = request.pathVariable("name");
 
                 loadService.deletePrey(name);
 
                 return noContent().build();
-            }));
+            }))
+            .and(route(GET(urlRps), request -> ok().body(Mono.fromCallable(loadService::getCurrentRps), CurrentLoadParameters.class)));
     }
 
     @Bean

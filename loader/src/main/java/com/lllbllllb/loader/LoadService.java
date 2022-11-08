@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
 
 import io.netty.handler.timeout.ReadTimeoutException;
@@ -37,6 +38,10 @@ public class LoadService {
 
     private final Collection<Prey> preysList = Collections.synchronizedCollection(new LinkedHashSet<>());
 
+    private final AtomicInteger sessions = new AtomicInteger(0);
+
+    private volatile CurrentLoadParameters currentLoadParameters = new CurrentLoadParameters(0, false); // https://stackoverflow.com/a/281163
+
     private final Clock clock;
 
     private final ConfigurationProperties properties;
@@ -45,20 +50,14 @@ public class LoadService {
 
     public void receiveEvent(String serviceName, IncomeEvent event) {
         var rps = event.getRps();
+        currentLoadParameters = new CurrentLoadParameters(rps, event.isStopWhenDisconnect());
+        var prev = serviceNameToDisposable.remove(serviceName);
 
-        if (rps == 0) {
-            var prev = serviceNameToDisposable.remove(serviceName);
+        if (prev != null && !prev.isDisposed()) {
+            prev.dispose();
+        }
 
-            if (prev != null && !prev.isDisposed()) {
-                prev.dispose();
-            }
-        } else {
-            var prev = serviceNameToDisposable.remove(serviceName);
-
-            if (prev != null && !prev.isDisposed()) {
-                prev.dispose();
-            }
-
+        if (rps != 0) {
             var loaderConfig = properties.getLoaderConfig();
             var threadCap = loaderConfig.getThreadCap();
             var queuedTaskCap = loaderConfig.getQueuedTaskCap();
@@ -103,23 +102,33 @@ public class LoadService {
     }
 
     public Flux<LoadQuaintResult> getLoadEventStream(String serviceName) {
-        var loadEventSink = serviceNameToLoadEventSink.computeIfAbsent(serviceName, sn -> Sinks.many().unicast().onBackpressureBuffer());
+        var loadEventSink = serviceNameToLoadEventSink.computeIfAbsent(serviceName, sn -> Sinks.many().multicast().onBackpressureBuffer());
 
         log.info("Loader for [{}] was initialized", serviceName);
+
+        sessions.incrementAndGet();
 
         return loadEventSink.asFlux();
     }
 
     public void finalize(String serviceName) {
-        serviceNameToLoadEventSink.remove(serviceName).emitComplete(Sinks.EmitFailureHandler.FAIL_FAST);
+        if (currentLoadParameters.isStopWhenDisconnect() && sessions.decrementAndGet() < 1) {
+            var loadEventSink = serviceNameToLoadEventSink.remove(serviceName);
 
-        var disposable = serviceNameToDisposable.remove(serviceName);
+            if (loadEventSink != null) {
+                loadEventSink.emitComplete(Sinks.EmitFailureHandler.FAIL_FAST);
+            }
 
-        if (disposable != null) {
-            disposable.dispose();
+            var disposable = serviceNameToDisposable.remove(serviceName);
+
+            if (disposable != null) {
+                disposable.dispose();
+            }
+
+            currentLoadParameters = new CurrentLoadParameters(0, false);
+
+            log.info("Loader for [{}] was finalized successfully", serviceName);
         }
-
-        log.info("Loader for [{}] was finalized successfully", serviceName);
     }
 
     public void registerPrey(Prey prey) {
@@ -137,6 +146,10 @@ public class LoadService {
     public void deletePrey(String preyName) {
         preyNameToWebClientMap.remove(preyName);
         preysList.removeIf(prey -> prey.getName().equals(preyName));
+    }
+
+    public CurrentLoadParameters getCurrentRps() {
+        return currentLoadParameters;
     }
 
     private void publishOutcomeEvent(String serviceName, LoadQuaintResult loadQuaintResult, int rps) {

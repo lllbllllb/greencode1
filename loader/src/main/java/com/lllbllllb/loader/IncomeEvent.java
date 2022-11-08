@@ -7,4 +7,6 @@ public class IncomeEvent {
 
     int rps;
 
+    boolean stopWhenDisconnect;
+
 }

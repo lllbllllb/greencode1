@@ -129,12 +129,11 @@
 <div id="chartContainer"></div>
 
 <script type="text/javascript" charset="UTF-8">
-    let preysToLoad = {};
     // preysToLoad["web"] = "http://localhost:8081/string/stream";
     // preysToLoad["webflux"] = "http://localhost:8082/string/stream";
-    // preysToLoad["webflux1"] = "http://localhost:8082/string/stream";
-    const nameToWsMap = {};
-    const nameToLineChartMap = {};
+    let preysToLoad = {};
+    let nameToWsMap = {};
+    let nameToLineChartMap = {};
 
     window.onload = (event) => {
         registerSlider();
@@ -172,6 +171,18 @@
             rpsSliderDiv.innerHTML = this.value;
             loadServices(this.value);
         }
+
+        fetch("http://localhost:8088/loadParameters", {
+            method: "GET",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        }).then(preys => preys.json())
+            .then(loadParameters => {
+                rpsSlide.value = loadParameters.rps;
+                rpsSliderDiv.innerHTML = loadParameters.rps;
+            });
     }
 
     function registerAddItemButton() {
@@ -211,13 +222,17 @@
                 preyList.innerHTML = "";
                 const chartContainer = document.getElementById("chartContainer");
                 chartContainer.innerHTML = "";
+                preysToLoad = {};
+                nameToWsMap = {};
+                nameToLineChartMap = {};
 
                 preys.forEach((prey, index, array) => {
-                    const name  = prey.name;
+                    const name = prey.name;
                     const url = prey.path;
                     preysToLoad[name] = url;
                     renderPrey(name, url);
                     renderPreyChart(name);
+                    connectToWs(name);
                 });
             });
     }
@@ -233,7 +248,6 @@
                 "path": "${url}"
             }`
         }).then(date => {
-            connectToWs(name);
             reloadPreys();
         });
     }

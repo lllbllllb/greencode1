@@ -1,17 +1,24 @@
 package com.lllbllllb.loader;
 
+import java.util.Map;
+
 import lombok.Data;
 
-/**
- * Prey.
- *
- * @author Yahor Pashkouski
- * @since 05.11.2022
- */
 @Data
 public class Prey {
 
+    private String name;
+
     private String path;
 
-    private String name;
+    private LoadMethod method;
+
+    private String requestParameters;
+
+    private Map<String, String> headers;
+
+    private String requestBody;
+
+    private long timeoutMs;
+
 }

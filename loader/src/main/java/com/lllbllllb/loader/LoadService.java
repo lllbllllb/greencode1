@@ -1,6 +1,5 @@
 package com.lllbllllb.loader;
 
-import java.time.Clock;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Collections;
@@ -42,8 +41,6 @@ public class LoadService {
 
     private volatile CurrentLoadParameters currentLoadParameters = new CurrentLoadParameters(0, false); // https://stackoverflow.com/a/281163
 
-    private final Clock clock;
-
     private final ConfigurationProperties properties;
 
     private final WebClientFactory webClientFactory;
@@ -64,20 +61,15 @@ public class LoadService {
             var schedulerName = String.format("loadServiceBoundedElastic-%s-%s", threadCap, queuedTaskCap);
             var disposable = Flux.interval(Duration.ofNanos(1_000_000_000L / rps))
                 .parallel().runOn(Schedulers.newBoundedElastic(threadCap, queuedTaskCap, schedulerName))
-                .flatMap(i -> {
-                    var start = clock.millis();
+                .concatMap(i -> {
                     var count = i + 1;
 
                     return preyNameToWebClientMap.get(serviceName).get()
                         .retrieve()
                         .toBodilessEntity()
-                        .map(entities -> {
-                            var end = clock.millis();
-
-                            return new LoadQuaintResult(serviceName, start, end, LoadQuaintResult.Summary.SUCCESS, count);
-                        })
+                        .elapsed()
+                        .map(tuple2 -> new LoadQuaintResult(serviceName, tuple2.getT1(), LoadQuaintResult.Summary.SUCCESS, count))
                         .onErrorResume(e -> {
-                            var end = clock.millis();
                             var timeouts = Set.of(
                                 TimeoutException.class,
                                 io.netty.handler.timeout.TimeoutException.class,
@@ -87,11 +79,11 @@ public class LoadService {
                             );
 
                             if (timeouts.contains(e.getClass()) || timeouts.contains(e.getCause().getClass())) {
-                                return Mono.just(new LoadQuaintResult(serviceName, start, end, LoadQuaintResult.Summary.TIMEOUT, count));
+                                return Mono.just(new LoadQuaintResult(serviceName, 0, LoadQuaintResult.Summary.TIMEOUT, count));
                             } else {
                                 log.error(e.getMessage(), e);
 
-                                return Mono.just(new LoadQuaintResult(serviceName, start, end, LoadQuaintResult.Summary.SERVER_ERROR, count));
+                                return Mono.just(new LoadQuaintResult(serviceName, 0, LoadQuaintResult.Summary.SERVER_ERROR, count));
                             }
                         });
                 })
@@ -156,7 +148,7 @@ public class LoadService {
         var sink = serviceNameToLoadEventSink.get(serviceName);
         var freq = 50;
 
-        if (rps > freq && loadQuaintResult.getTotalCount() % (rps / freq) != 0) {
+        if (rps > freq && loadQuaintResult.totalCount() % (rps / freq) != 0) {
             return;
         }
 

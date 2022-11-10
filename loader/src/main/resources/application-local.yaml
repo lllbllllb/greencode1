@@ -5,10 +5,3 @@ spring:
     url: r2dbc:postgresql://localhost:5432/postgres
     username: postgres
     password: postgrespw
-
-loader-service:
-  services:
-    web-service:
-      host: http://localhost:8081
-    webflux-service:
-      host: http://localhost:8082

@@ -50,7 +50,7 @@ public class LoaderApplication {
         var urlRps = "/loadParameters";
 
         return route(POST(urlPrey), request -> request.bodyToMono(Prey.class)
-            .flatMap((Prey prey) -> {
+            .flatMap(prey -> {
                 loadService.registerPrey(prey);
 
                 return noContent().build();

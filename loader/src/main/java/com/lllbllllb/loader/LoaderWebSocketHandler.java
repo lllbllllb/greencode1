@@ -52,8 +52,8 @@ public class LoaderWebSocketHandler implements WebSocketHandler {
     }
 
     @SneakyThrows
-    private String toJson(LoadQuaintResult loadQuaintResult) {
-        return objectMapper.writeValueAsString(loadQuaintResult);
+    private String toJson(AttemptReport attemptReport) {
+        return objectMapper.writeValueAsString(attemptReport);
     }
 
 }

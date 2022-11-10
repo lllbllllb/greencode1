@@ -3,6 +3,7 @@ package com.lllbllllb.loader;
 import java.util.Map;
 
 import lombok.Data;
+import org.springframework.http.HttpMethod;
 
 @Data
 public class Prey {
@@ -11,7 +12,7 @@ public class Prey {
 
     private String path;
 
-    private LoadMethod method;
+    private HttpMethod method;
 
     private String requestParameters;
 
@@ -20,5 +21,7 @@ public class Prey {
     private String requestBody;
 
     private long timeoutMs;
+
+    private int expectedResponseStatusCode;
 
 }

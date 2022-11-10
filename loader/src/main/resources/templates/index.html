@@ -84,7 +84,7 @@
                                 <div id="${accordionId}" class="accordion-collapse collapse" aria-labelledby="flush-headingOne" data-bs-parent="#accordionFlushExample">
                                 <div class="row">
                                     <div id="${bodyId}" class="accordion-body col">${method}: ${url}${requestParameters ? '?' + requestParameters : ''}</div>
-                                    <div class="accordion-body col-md-2 d-flex justify-content-end">(timeout ${timeoutMs} ms)</div>
+                                    <div class="accordion-body col-md-2 d-flex justify-content-end">(response timeout ${timeoutMs} ms)</div>
                                 </div>
                                     ${headersList ? `<div class="accordion-body">${headersList}</div>` : ""}
                                     ${requestBody ? `
@@ -202,8 +202,9 @@
                         const requestParameters = prey.requestParameters;
                         const headers = prey.headers;
                         const requestBody = prey.requestBody;
+                        const timeout = prey.timeoutMs;
                         preysToLoad[name] = url;
-                        renderPrey(name, url, method, requestParameters, headers, requestBody);
+                        renderPrey(name, url, method, requestParameters, headers, requestBody, timeout);
                         renderPreyCharts(name);
                         connectToWs(name);
                     });
@@ -620,7 +621,7 @@
             </div>
 
             <div class="col-md-6">
-                <label for="responseTimeoutInputId" class="form-label">Expected response time, ms</label>
+                <label for="responseTimeoutInputId" class="form-label">Response timeout, ms</label>
                 <input type="number" class="form-control" id="responseTimeoutInputId" value="100">
             </div>
         </div>

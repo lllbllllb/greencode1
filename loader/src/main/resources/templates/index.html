@@ -2,6 +2,10 @@
 <html lang="ee">
 <head title="loader">
     <style>
+        body {
+            background-color: rgba(0, 0, 255, .01) !important;
+        }
+
         datalist {
             display: flex;
             flex-direction: column;
@@ -14,19 +18,28 @@
             margin: 0;
         }
 
-        .slider-container {
-            display: flex;
-            justify-content: space-between;
-            flex-direction: column;
-            align-items: center;
+        .sticky-container {
             position: sticky;
-            top: 8px;
-            background-color: rgba(255, 255, 255, 0.8);
-            border-radius: 10px;
-            padding: 2px;
+            top: -1px;           /* the trick for the sticky IntersectionObserver */
+            padding-top: 1px;    /* compensate for the trick */
         }
 
+        #stickyTickmarksContainer.isSticky {
+            color: rgb(0, 0, 0, 0);
+            transition: .4s;
+        }
 
+        #stickyButtonContainer {
+            display: flex;
+        }
+        
+        #stickyButtonContainer.isSticky {
+            display: none;
+        }
+
+        .matte-background {
+            background-color: rgba(255, 255, 255, 0.8);
+        }
     </style>
 
     <!-- import -->
@@ -58,7 +71,7 @@
             registerSubmitNewPreyEventListener();
             reloadPreys();
             registerAddHeaderButtonButton();
-            renderHeaders()
+            renderHeaders();
         };
 
         function renderPrey(name, url, method, requestParameters, headers, requestBody, timeoutMs) {
@@ -82,9 +95,9 @@
                                     <button id="${accordionButtonId}" class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#${accordionId}" aria-expanded="false" aria-controls="flush-collapseOne">${name}</button>
                                 </div>
                                 <div id="${accordionId}" class="accordion-collapse collapse" aria-labelledby="flush-headingOne" data-bs-parent="#accordionFlushExample">
-                                <div class="row">
-                                    <div id="${bodyId}" class="accordion-body col">${method}: ${url}${requestParameters ? '?' + requestParameters : ''}</div>
-                                    <div class="accordion-body col-md-2 d-flex justify-content-end">(response timeout ${timeoutMs} ms)</div>
+                                <div class="row accordion-body">
+                                    <div id="${bodyId}" class="col">${method}: ${url}${requestParameters ? '?' + requestParameters : ''}</div>
+                                    <div class="accordion-body col-md-3 d-flex justify-content-end">(response timeout ${timeoutMs} ms)</div>
                                 </div>
                                     ${headersList ? `<div class="accordion-body">${headersList}</div>` : ""}
                                     ${requestBody ? `
@@ -113,10 +126,16 @@
         }
 
         function registerSlider() {
+            onSliderStickyContainerEvent();
+
             const rpsSlide = document.getElementById('rpsSlide');
             const rpsSliderDiv = document.getElementById("sliderAmount");
-            rpsSlide.onchange = function () {
+
+            rpsSlide.oninput = function () {
                 rpsSliderDiv.innerHTML = this.value;
+            }
+
+            rpsSlide.onchange = function () {
                 loadServices(this.value);
             }
 
@@ -142,7 +161,7 @@
                 const loadRequestParams = document.getElementById("loadRequestParams").value;
                 const loadRequestBody = document.getElementById("loadRequestBody").value;
                 const expectedTime = document.getElementById("responseTimeoutInputId").value;
-                const expectedResponseStatusCode = document.getElementById("expectedStatusCodeId").value;
+                const expectedResponseStatusCode = document.getElementById("expectedStatusCodeInputId").value;
 
                 if (preyConfigForm.checkValidity()) {
                     if (!preysToLoad[newPreyName]) {
@@ -443,10 +462,10 @@
             const canvas = `
                 <label class="container-fluid text-center" for="chart-row-${name}">${name}</label>
                 <div id="chart-row-${name}" class="row justify-content-between">
-                    <div id="cnavas_${lineChartId}" class="col-md-10 row align-items-start">
+                    <div id="cnavas_${lineChartId}" class="col-md-10 align-items-start">
                         <canvas id="${lineChartId}" width="100%" height="22"></canvas>
                     </div>
-                    <div id="cnavas_${barChartId}" class="col-md-2 row align-items-start">
+                    <div id="cnavas_${barChartId}" class="col-md-2 align-items-start">
                         <canvas id="${barChartId}" width="100%" height="120"></canvas>
                     </div>
                 </div>
@@ -514,6 +533,22 @@
                 renderHeaders();
             }
         }
+
+        function onSliderStickyContainerEvent() {
+            const stickyContainer = document.getElementById("sliderStickyContainer");
+
+
+            const observer = new IntersectionObserver(
+                ([e]) => {
+                    const target = e.target;
+                    target.querySelector("#stickyButtonContainer").classList.toggle('isSticky', e.intersectionRatio < 1)
+                    target.querySelector("#stickyTickmarksContainer").classList.toggle('isSticky', e.intersectionRatio < 1)
+                },
+                {threshold: [1]}
+            );
+
+            observer.observe(stickyContainer)
+        }
     </script>
     <title></title>
 </head>
@@ -538,7 +573,7 @@
         </div>
 
         <div class="col-md-1 d-flex justify-content-end">
-            <button id="additionalFields" type="button" class="btn btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#additionalFieldsForm">
+            <button id="additionalFields" type="button" class="btn btn-outline-info" data-bs-toggle="collapse" data-bs-target="#additionalFieldsForm">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-chevron-compact-down" viewBox="0 0 16 16">
                     <path fill-rule="evenodd"
                           d="M1.553 6.776a.5.5 0 0 1 .67-.223L8 9.44l5.776-2.888a.5.5 0 1 1 .448.894l-6 3a.5.5 0 0 1-.448 0l-6-3a.5.5 0 0 1-.223-.67z"/>
@@ -615,14 +650,22 @@
         </div>
 
         <div class="row">
-            <div class="col-md-6">
-                <label for="expectedStatusCodeId" class="form-label">Expected success response status code</label>
-                <input type="number" class="form-control" id="expectedStatusCodeId" value="200">
+            <div class="col-md-4">
+                <label for="expectedStatusCodeInputId" class="form-label">Expected success response status code</label>
+                <input type="number" step="1" class="form-control" id="expectedStatusCodeInputId" value="200" placeholder="any">
+                <div class="invalid-feedback">Must be integer</div>
             </div>
 
-            <div class="col-md-6">
+            <div class="col-md-4">
                 <label for="responseTimeoutInputId" class="form-label">Response timeout, ms</label>
-                <input type="number" class="form-control" id="responseTimeoutInputId" value="100">
+                <input type="number" step="1" class="form-control" id="responseTimeoutInputId" min="1" value="100" required>
+                <div class="invalid-feedback">Must be positive integer</div>
+            </div>
+
+            <div class="col-md-4">
+                <label for="loadTimeInputId" class="form-label">Load time, s</label>
+                <input type="number" step="1" class="form-control" min="1" id="loadTimeInputId" value="30" required>
+                <div class="invalid-feedback">Must be positive integer</div>
             </div>
         </div>
     </div>
@@ -640,27 +683,39 @@
     <ul id="preyList" class="list-group"></ul>
 </div>
 
-<div class="container slider-container mt-2 col-md-12">
-    <div>
-        <label class="form-label" for="rpsSlide">Load, RPS:&nbsp;</label><span class="form-label" style="font-weight: bold" id="sliderAmount">0</span>
-    </div>
-    <input id="rpsSlide" name="rpsSlide" type="range" min="0" max="1000" step="4" value="0" list="tickmarks" class="form-range"/>
-</div>
+<div class="container sticky-container" id="sliderStickyContainer">
+    <div class="mt-2 row d-flex align-items-center">
+        <div class="container mt-2 col">
+            <div class="d-flex justify-content-center">
+                <label class="form-label matte-background" for="rpsSlide">Load, RPS:&nbsp;</label><span class="form-label" style="font-weight: bold" id="sliderAmount">0</span>
+            </div>
+            <input id="rpsSlide" name="rpsSlide" type="range" min="0" max="1000" step="4" value="0" list="tickmarks" class="form-range matte-background"/>
+            <div class="container-fluid m-0 p-0" id="stickyTickmarksContainer">
+                <datalist id="tickmarks" class=" col-md-12">
+                    <option value="0" label="disable"></option>
+                    <option value="100" label="100"></option>
+                    <option value="200" label="200"></option>
+                    <option value="300" label="300"></option>
+                    <option value="400" label="400"></option>
+                    <option value="500" label="500"></option>
+                    <option value="600" label="600"></option>
+                    <option value="700" label="700"></option>
+                    <option value="800" label="800"></option>
+                    <option value="900" label="900"></option>
+                    <option value="1000" label="1000"></option>
+                </datalist>
+            </div>
+        </div>
 
-<div class="container">
-    <datalist id="tickmarks" class=" col-md-12">
-        <option value="0" label="disable"></option>
-        <option value="100" label="100"></option>
-        <option value="200" label="200"></option>
-        <option value="300" label="300"></option>
-        <option value="400" label="400"></option>
-        <option value="500" label="500"></option>
-        <option value="600" label="600"></option>
-        <option value="700" label="700"></option>
-        <option value="800" label="800"></option>
-        <option value="900" label="900"></option>
-        <option value="1000" label="1000"></option>
-    </datalist>
+        <div class="col-md-1 justify-content-end" id="stickyButtonContainer">
+            <button id="additionalFields1" type="button" class="btn btn-outline-info" data-bs-toggle="collapse" data-bs-target="">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-chevron-compact-down" viewBox="0 0 16 16">
+                    <path fill-rule="evenodd"
+                          d="M1.553 6.776a.5.5 0 0 1 .67-.223L8 9.44l5.776-2.888a.5.5 0 1 1 .448.894l-6 3a.5.5 0 0 1-.448 0l-6-3a.5.5 0 0 1-.223-.67z"/>
+                </svg>
+            </button>
+        </div>
+    </div>
 </div>
 
 <!-- chart -->

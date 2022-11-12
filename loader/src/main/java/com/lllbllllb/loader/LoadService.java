@@ -99,7 +99,7 @@ public class LoadService {
                                 return Mono.error(e);
                             }
                         });
-                })
+                }, false, 9_999_999, 1)
                 .subscribe(event -> publishOutcomeEvent(preyName, event, rps));
 
             serviceNameToDisposable.put(preyName, disposable);

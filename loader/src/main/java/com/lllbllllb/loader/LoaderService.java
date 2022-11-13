@@ -40,7 +40,7 @@ public class LoaderService {
                 preyName,
                 loadOptions,
                 countdownTick -> sessionService.publishACountdownTick(preyName, countdownTick),
-                () -> finalizePrey(preyName)
+                () -> resettables.forEach(resettable -> resettable.reset(preyName))
             ))
             .map(interval -> Flux.interval(interval)
                 .parallel().runOn(Schedulers.boundedElastic())

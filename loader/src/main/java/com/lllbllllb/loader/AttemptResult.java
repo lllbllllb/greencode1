@@ -1,11 +1,9 @@
 package com.lllbllllb.loader;
 
-public record AttemptReport(
-    String serviceName,
-
+public record AttemptResult(
     long responseTime,
 
-    AttemptResult attemptResult,
+    Status status,
     long attemptNumber,
 
     long successCount,
@@ -16,7 +14,7 @@ public record AttemptReport(
 
 ) {
 
-    public enum AttemptResult {
+    public enum Status {
         SUCCESS,
         TIMEOUT,
         UNEXPECTED_STATUS

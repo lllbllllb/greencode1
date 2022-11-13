@@ -2,26 +2,24 @@ package com.lllbllllb.loader;
 
 import java.util.Map;
 
-import lombok.Data;
 import org.springframework.http.HttpMethod;
 
-@Data
-public class Prey {
+public record Prey(
+    String name,
 
-    private String name;
+    String path,
 
-    private String path;
+    HttpMethod method,
 
-    private HttpMethod method;
+    String requestParameters,
 
-    private String requestParameters;
+    Map<String, String> headers,
 
-    private Map<String, String> headers;
+    String requestBody,
 
-    private String requestBody;
+    long timeoutMs,
 
-    private long timeoutMs;
-
-    private int expectedResponseStatusCode;
+    int expectedResponseStatusCode
+) {
 
 }

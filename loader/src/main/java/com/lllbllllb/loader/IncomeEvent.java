@@ -9,4 +9,6 @@ public class IncomeEvent {
 
     boolean stopWhenDisconnect;
 
+    boolean observerMode;
+
 }

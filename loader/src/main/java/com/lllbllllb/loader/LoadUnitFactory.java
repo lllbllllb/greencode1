@@ -8,9 +8,10 @@ import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.stereotype.Service;
 import org.springframework.util.MultiValueMapAdapter;
 import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.reactive.function.client.WebClient.RequestHeadersSpec;
+import reactor.core.publisher.Mono;
 import reactor.netty.http.client.HttpClient;
 import reactor.netty.resources.ConnectionProvider;
+import reactor.util.function.Tuple2;
 
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.groupingBy;
@@ -19,25 +20,27 @@ import static java.util.stream.Collectors.toList;
 
 @Service
 @RequiredArgsConstructor
-public class WebClientFactory {
+public class LoadUnitFactory {
 
-    public RequestHeadersSpec<?> create(Prey prey) {
-        var connectionProvider = ConnectionProvider.builder("loaderConnectionPool-" + prey.getName())
+    public Mono<Tuple2<Long, Integer>> create(Prey prey) {
+        var connectionProvider = ConnectionProvider.builder("loaderConnectionPool-" + prey.name())
             .pendingAcquireMaxCount(-1) // no limit
             .build();
         var client = HttpClient.create(connectionProvider)
-            .responseTimeout(Duration.ofMillis(prey.getTimeoutMs()));
+            .responseTimeout(Duration.ofMillis(prey.timeoutMs()));
         var clientHttpConnector = new ReactorClientHttpConnector(client);
-        var headers = prey.getHeaders().entrySet().stream()
+        var headers = prey.headers().entrySet().stream()
             .collect(collectingAndThen(groupingBy(Map.Entry::getKey, mapping(Map.Entry::getValue, toList())), MultiValueMapAdapter::new));
 
         return WebClient.builder()
             .defaultHeaders(httpHeaders -> httpHeaders.addAll(headers))
-            .baseUrl("%s?%s".formatted(prey.getPath(), prey.getRequestParameters()))
+            .baseUrl("%s?%s".formatted(prey.path(), prey.requestParameters()))
             .clientConnector(clientHttpConnector)
             .build()
-            .method(prey.getMethod())
-            .bodyValue(prey.getRequestBody());
+            .method(prey.method())
+            .bodyValue(prey.requestBody())
+            .exchangeToMono(clientResponse -> Mono.just(clientResponse.rawStatusCode()))
+            .elapsed();
     }
 
 }

@@ -12,12 +12,12 @@ public class ObjectMapperService {
     private final ObjectMapper objectMapper;
 
     @SneakyThrows
-    public LoadConfiguration fromJson(String json) {
-        return objectMapper.readValue(json, LoadConfiguration.class);
+    public LoadOptions fromJson(String json) {
+        return objectMapper.readValue(json, LoadOptions.class);
     }
 
     @SneakyThrows
-    public String toJson(AttemptResult attemptResult) {
+    public String toJson(Object attemptResult) {
         return objectMapper.writeValueAsString(attemptResult);
     }
 

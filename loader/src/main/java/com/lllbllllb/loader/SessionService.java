@@ -13,13 +13,16 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
+import static com.lllbllllb.loader.StreamUtils.CUSTOM_EMIT_FAILURE_HANDLER;
 import static reactor.util.concurrent.Queues.SMALL_BUFFER_SIZE;
 
 @Slf4j
 @Service
 public class SessionService implements Initializable, Finalizable {
 
-    private final Map<String, Sinks.Many<AttemptResult>> serviceNameToLoadEventSink = new ConcurrentHashMap<>();
+    private final Map<String, Sinks.Many<AttemptResult>> preyNameToAttemptResultSink = new ConcurrentHashMap<>();
+
+    private final Map<String, Sinks.Many<CountdownTick>> preyNameToCountdownTickSink = new ConcurrentHashMap<>();
 
     private final Map<String, Prey> preyNameToPreyMap = new ConcurrentHashMap<>();
 
@@ -31,25 +34,43 @@ public class SessionService implements Initializable, Finalizable {
 
         preyNameToPreyMap.put(preyName, prey);
 
-        var sink = Sinks.many().multicast().<AttemptResult>onBackpressureBuffer(SMALL_BUFFER_SIZE, false);
+        var attemptResultSink = Sinks.many().multicast().<AttemptResult>onBackpressureBuffer(SMALL_BUFFER_SIZE, false);
 
-        serviceNameToLoadEventSink.put(preyName, sink);
+        preyNameToAttemptResultSink.put(preyName, attemptResultSink);
+
+        var countdownTickSink = Sinks.many().multicast().<CountdownTick>onBackpressureBuffer(SMALL_BUFFER_SIZE, false);
+
+        preyNameToCountdownTickSink.put(preyName, countdownTickSink);
 
         log.info("Session for [{}] was initialized", prey);
     }
 
     public Flux<AttemptResult> subscribeToAttemptResultStream(String preyName) {
-        var loadEventSink = serviceNameToLoadEventSink.get(preyName);
+        var attemptResultSink = preyNameToAttemptResultSink.get(preyName);
 
-        if (loadEventSink == null) {
-            throw new IllegalStateException("Sink for [%s] already closed".formatted(preyName));
+        if (attemptResultSink == null) {
+            throw new IllegalStateException("[AttemptResult] stream for [%s] already closed".formatted(preyName));
         }
 
         sessions.incrementAndGet();
 
-        var stream = loadEventSink.asFlux();
+        var stream = attemptResultSink.asFlux();
 
-        log.info("Output stream [{}] got a subscriber", preyName);
+        log.info("[AttemptResult] stream for [{}] got a subscriber", preyName);
+
+        return stream;
+    }
+
+    public Flux<CountdownTick> subscribeToCountdownTickStream(String preyName) {
+        var countdownTickSink = preyNameToCountdownTickSink.get(preyName);
+
+        if (countdownTickSink == null) {
+            throw new IllegalStateException("[CountdownTick] steam for [%s] already closed".formatted(preyName));
+        }
+
+        var stream = countdownTickSink.asFlux();
+
+        log.info("[CountdownTick] stream for [{}] got a subscriber", preyName);
 
         return stream;
     }
@@ -77,43 +98,43 @@ public class SessionService implements Initializable, Finalizable {
         var prey = preyNameToPreyMap.remove(preyName);
 
         if (prey != null) {
-            var loadEventSink = serviceNameToLoadEventSink.remove(preyName);
-
-            if (loadEventSink != null) {
-                loadEventSink.emitComplete(Sinks.EmitFailureHandler.FAIL_FAST);
-            } else {
-                log.warn("Output stream for [{}] was already finalized", preyName);
-            }
-        } else {
-            log.warn("Prey [{}] was already finalized", preyName);
+            log.warn("Prey [{}] is already finalized", preyName);
         }
+
+        var attemptResultSink = preyNameToAttemptResultSink.remove(preyName);
+
+        if (attemptResultSink != null) {
+            attemptResultSink.emitComplete(CUSTOM_EMIT_FAILURE_HANDLER);
+        } else {
+            log.warn("[AttemptResult] stream for [{}] was already finalized", preyName);
+        }
+
+        var countdownTickSink = preyNameToCountdownTickSink.remove(preyName);
+
+        if (countdownTickSink != null) {
+            countdownTickSink.emitComplete(CUSTOM_EMIT_FAILURE_HANDLER);
+        } else {
+            log.warn("[CountdownTick] stream for [{}] was already finalized", preyName);
+        }
+
     }
 
-//    public void publishOutcomeEvent(String preyName, AttemptResult attemptResult, int rps) {
-    public void publishOutcomeEvent(String preyName, AttemptResult attemptResult) {
-        var sink = serviceNameToLoadEventSink.get(preyName);
+    public void publishAttemptResult(String preyName, AttemptResult attemptResult) {
+        var sink = preyNameToAttemptResultSink.get(preyName);
 
         if (sink == null) {
-            throw new IllegalStateException("Sink for [%s] not found".formatted(preyName));
+            throw new IllegalStateException("[AttemptResult] sink for [%s] not found".formatted(preyName));
         }
-//
-//        var freq = 50;
-//
-//        if (rps > freq && attemptResult.attemptNumber() % (rps / freq) != 0) {
-//            return;
-//        }
 
-        sink.emitNext(attemptResult, (signalType, emitResult) -> {
-            if (emitResult == Sinks.EmitResult.FAIL_NON_SERIALIZED) {
-                LockSupport.parkNanos(10);
-                return true;
-            } else if (emitResult == Sinks.EmitResult.FAIL_TERMINATED || emitResult == Sinks.EmitResult.FAIL_OVERFLOW) {
-                finalize(preyName);
+        sink.emitNext(attemptResult, CUSTOM_EMIT_FAILURE_HANDLER);
+    }
+    public void publishACountdownTick(String preyName, CountdownTick countdownTick) {
+        var sink = preyNameToCountdownTickSink.get(preyName);
 
-                return Sinks.EmitFailureHandler.FAIL_FAST.onEmitFailure(signalType, emitResult);
-            } else {
-                return Sinks.EmitFailureHandler.FAIL_FAST.onEmitFailure(signalType, emitResult);
-            }
-        });
+        if (sink == null) {
+            throw new IllegalStateException("[CountdownTick] sink for [%s] not found".formatted(preyName));
+        }
+
+        sink.emitNext(countdownTick, CUSTOM_EMIT_FAILURE_HANDLER);
     }
 }

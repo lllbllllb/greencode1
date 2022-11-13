@@ -2,7 +2,6 @@ package com.lllbllllb.loader;
 
 import java.time.Duration;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 import lombok.extern.slf4j.Slf4j;
@@ -13,13 +12,13 @@ import reactor.core.publisher.Mono;
 @Service
 public class LoadConfigurationService implements Initializable, Finalizable {
 
-    private static final LoadConfiguration DEFAULT_LOAD_CONFIGURATION = new LoadConfiguration(0, false, true, 30);
+    private static final LoadOptions DEFAULT_LOAD_CONFIGURATION = new LoadOptions(0, false, true, 30);
 
     private static final long NANOS_PER_SECOND =  1000_000_000L;
 
-    private final Map<String, LoadConfiguration> nameToLoadConfigurationMap = new ConcurrentHashMap<>();
+    private final Map<String, LoadOptions> nameToLoadConfigurationMap = new ConcurrentHashMap<>();
 
-    public LoadConfiguration getLoadConfiguration() {
+    public LoadOptions getLoadConfiguration() {
         if (nameToLoadConfigurationMap.size() > 0) {
             return nameToLoadConfigurationMap.values().iterator().next();
         } else {
@@ -27,7 +26,7 @@ public class LoadConfigurationService implements Initializable, Finalizable {
         }
     }
 
-    public LoadConfiguration getLoadConfiguration(String preyName) {
+    public LoadOptions getLoadConfiguration(String preyName) {
         var configuration = nameToLoadConfigurationMap.get(preyName);
 
         if (configuration != null) {
@@ -37,8 +36,8 @@ public class LoadConfigurationService implements Initializable, Finalizable {
         throw new IllegalStateException("Load configuration for [%s] not exists".formatted(preyName));
     }
 
-    public void updateLoadConfiguration(String preyName, LoadConfiguration loadConfiguration) {
-        nameToLoadConfigurationMap.put(preyName, loadConfiguration);
+    public void updateLoadConfiguration(String preyName, LoadOptions loadOptions) {
+        nameToLoadConfigurationMap.put(preyName, loadOptions);
     }
 
     public Mono<Duration> getLoadInterval(String preyName) {

@@ -59,17 +59,23 @@ public class LoaderServiceConfiguration {
     }
 
     @Bean
-    HandlerMapping webSocketMapping(WebSocketHandler webSocketHandler) {
-        var map = Map.of("/websocket/load", webSocketHandler);
+    HandlerMapping webSocketMapping(
+        WebSocketHandler loadWebSocketHandler,
+        WebSocketHandler countdownWebSocketHandler
+    ) {
+        var map = Map.of(
+            "/websocket/load", loadWebSocketHandler,
+            "/websocket/countdown", countdownWebSocketHandler
+        );
         var simpleUrlHandlerMapping = new SimpleUrlHandlerMapping();
         simpleUrlHandlerMapping.setUrlMap(map);
-        simpleUrlHandlerMapping.setOrder(10);
+        simpleUrlHandlerMapping.setOrder(9);
 
         return simpleUrlHandlerMapping;
     }
 
     @Bean
-    WebSocketHandler webSocketHandler(
+    WebSocketHandler loadWebSocketHandler(
         LoaderService loaderService,
         ObjectMapperService objectMapperService
     ) {
@@ -105,6 +111,26 @@ public class LoaderServiceConfiguration {
     }
 
     @Bean
+    WebSocketHandler countdownWebSocketHandler(
+        LoaderService loaderService,
+        ObjectMapperService objectMapperService
+    ) {
+        return session -> {
+            var preyName = session.getHandshakeInfo().getUri().getQuery();
+
+            if (preyName == null) {
+                throw new IllegalArgumentException("No serviceName present");
+            }
+
+            return loaderService.getTimerEventStream(preyName)
+                .map(objectMapperService::toJson)
+                .map(session::textMessage)
+                .as(session::send)
+                .doFinally(signalType -> log.info("Countdown WS handler was disconnected by reason [{}]", signalType));
+        };
+    }
+
+    @Bean
     RouterFunction<ServerResponse> loaderRestController(LoaderService loaderService) {
         var urlPrey = "/prey";
         var urlRps = "/loadParameters";
@@ -123,7 +149,7 @@ public class LoaderServiceConfiguration {
 
                 return noContent().build();
             }))
-            .and(route(GET(urlRps), request -> ok().body(Mono.fromCallable(loaderService::getLoadConfiguration), LoadConfiguration.class)));
+            .and(route(GET(urlRps), request -> ok().body(Mono.fromCallable(loaderService::getLoadConfiguration), LoadOptions.class)));
     }
 
     @Bean

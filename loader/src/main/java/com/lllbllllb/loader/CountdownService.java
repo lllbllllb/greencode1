@@ -12,21 +12,21 @@ import reactor.core.publisher.Flux;
 
 @Slf4j
 @Service
-public class TimerService implements Finalizable {
+public class CountdownService implements Finalizable, Resettable {
 
     private final Map<String, Disposable> preyNameToLoadTimerDisposable = new ConcurrentHashMap<>();
 
     public void runCountdown(
         String preyName,
-        LoadConfiguration loadConfiguration,
-        Consumer<Integer> countdownConsumer,
+        LoadOptions loadOptions,
+        Consumer<CountdownTick> countdownTickConsumer,
         Runnable finallyCallback
     ) {
-        var loadTime = loadConfiguration.loadTimeSec();
-        var disposable = Flux.range(0, loadTime)
+        var loadTime = loadOptions.loadTimeSec();
+        var disposable = Flux.range(1, loadTime)
             .delayElements(Duration.ofSeconds(1))
             .doFinally(signal -> finallyCallback.run())
-            .subscribe(tick -> countdownConsumer.accept(loadTime - tick));
+            .subscribe(tick -> countdownTickConsumer.accept(new CountdownTick(loadTime, loadTime - tick)));
 
         preyNameToLoadTimerDisposable.put(preyName, disposable);
     }
@@ -40,5 +40,10 @@ public class TimerService implements Finalizable {
         } else {
             log.info("Countdown for [{}] was already stopped", preyName);
         }
+    }
+
+    @Override
+    public void reset(String preyName) {
+        finalize(preyName);
     }
 }

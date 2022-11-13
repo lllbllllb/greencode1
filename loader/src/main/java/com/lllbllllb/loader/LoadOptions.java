@@ -1,11 +1,11 @@
 package com.lllbllllb.loader;
 
-public record LoadConfiguration(
+public record LoadOptions(
     int rps,
 
     boolean stopWhenDisconnect,
 
-    boolean observerMode,
+    boolean liveMode,
 
     int loadTimeSec
 ) {

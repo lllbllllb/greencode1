@@ -23,7 +23,7 @@ public class LoaderService {
 
     private final LoadConfigurationService loadConfigurationService;
 
-    private final TimerService timerService;
+    private final CountdownService countdownService;
 
     private final List<Finalizable> finalizables;
 
@@ -31,12 +31,17 @@ public class LoaderService {
 
     private final List<Initializable> initializables;
 
-    public void receiveEvent(String preyName, LoadConfiguration loadConfiguration) {
-        loadConfigurationService.updateLoadConfiguration(preyName, loadConfiguration);
+    public void receiveEvent(String preyName, LoadOptions loadOptions) {
+        loadConfigurationService.updateLoadConfiguration(preyName, loadOptions);
         resettables.forEach(resettable -> resettable.reset(preyName));
         loadConfigurationService.getLoadInterval(preyName)
             .publishOn(Schedulers.boundedElastic())
-            .doOnNext(interval -> timerService.runCountdown(preyName, loadConfiguration, System.out::println, () -> finalizePrey(preyName)))
+            .doOnNext(interval -> countdownService.runCountdown(
+                preyName,
+                loadOptions,
+                countdownTick -> sessionService.publishACountdownTick(preyName, countdownTick),
+                () -> finalizePrey(preyName)
+            ))
             .map(interval -> Flux.interval(interval)
                 .parallel().runOn(Schedulers.boundedElastic())
                 .flatMap(i -> {
@@ -63,12 +68,16 @@ public class LoaderService {
                             }
                         });
                 }, false, loadConfigurationService.getMaxConcurrency(preyName), 1)
-                .subscribe(event -> sessionService.publishOutcomeEvent(preyName, event)))
+                .subscribe(event -> sessionService.publishAttemptResult(preyName, event)))
             .subscribe(disposable -> loadService.registerActiveLoaderDisposable(preyName, disposable));
     }
 
     public Flux<AttemptResult> getLoadEventStream(String preyName) {
         return sessionService.subscribeToAttemptResultStream(preyName);
+    }
+
+    public Flux<CountdownTick> getTimerEventStream(String preyName) {
+        return sessionService.subscribeToCountdownTickStream(preyName);
     }
 
     public void registerPrey(Prey prey) {
@@ -96,7 +105,7 @@ public class LoaderService {
         return sessionService.getAllPreys();
     }
 
-    public LoadConfiguration getLoadConfiguration() {
+    public LoadOptions getLoadConfiguration() {
         return loadConfigurationService.getLoadConfiguration();
     }
 }

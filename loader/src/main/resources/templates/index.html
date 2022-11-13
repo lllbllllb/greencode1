@@ -70,7 +70,7 @@
             }
         }
         let preysToLoad = {};
-        let nameToWsMap = {};
+        let nameToLoadWsMap = {};
         let nameToLineChartMap = {};
         let nameToBarChartMap = {};
         let headerNameToValueMap = {
@@ -149,12 +149,12 @@
                 rpsSliderDiv.innerHTML = this.value;
             }
 
-            const observerModeInput = document.getElementById("observerModeInput");
+            const liveModeInput = document.getElementById("liveModeInput");
             const stopLoadWhenDisconnectInput = document.getElementById("stopLoadWhenDisconnectInput");
             const loadTimeInputId = document.getElementById("loadTimeInputId");
 
             rpsSlide.onchange = function () {
-                loadServices(this.value, observerModeInput.checked, stopLoadWhenDisconnectInput.checked, loadTimeInputId.value);
+                loadServices(this.value, liveModeInput.checked, stopLoadWhenDisconnectInput.checked, loadTimeInputId.value);
             }
 
             fetch("http://localhost:8088/loadParameters", {
@@ -164,11 +164,11 @@
                     "Accept": "application/json"
                 }
             }).then(preys => preys.json())
-                .then(loadParameters => {
-                    rpsSlide.value = loadParameters.rps;
-                    rpsSliderDiv.innerHTML = loadParameters.rps;
-                    observerModeInput.checked = loadParameters.observerMode;
-                    stopLoadWhenDisconnectInput.checked = loadParameters.stopWhenDisconnect;
+                .then(loadOptions => {
+                    rpsSlide.value = loadOptions.rps;
+                    rpsSliderDiv.innerHTML = loadOptions.rps;
+                    liveModeInput.checked = loadOptions.liveMode;
+                    stopLoadWhenDisconnectInput.checked = loadOptions.stopWhenDisconnect;
                 });
         }
 
@@ -217,16 +217,16 @@
             }
         }
 
-        function reloadPreys() {
+        async function reloadPreys() {
             const preyList = document.getElementById("preyList");
             preyList.innerHTML = "";
             const chartContainer = document.getElementById("chartContainer");
             chartContainer.innerHTML = "";
             preysToLoad = {};
-            nameToWsMap = {};
+            nameToLoadWsMap = {};
             nameToLineChartMap = {};
 
-            fetch("http://localhost:8088/prey", {
+            await fetch("http://localhost:8088/prey", {
                 method: "GET",
                 headers: {
                     "Content-Type": "application/json",
@@ -245,7 +245,8 @@
                         preysToLoad[name] = url;
                         renderPrey(name, url, method, requestParameters, headers, requestBody, timeout);
                         renderPreyCharts(name);
-                        connectToWs(name);
+                        connectToLoadWs(name);
+                        connectToCountdownWs(name);
                     });
                 });
         }
@@ -284,33 +285,67 @@
             });
         }
 
-        function connectToWs(name) {
+        async function connectToLoadWs(name) {
             const loadServiceWs = new WebSocket("ws://localhost:8088/websocket/load?" + name, []);
-            nameToWsMap[name] = loadServiceWs;
-            console.log(nameToWsMap)
+            nameToLoadWsMap[name] = loadServiceWs;
             loadServiceWs.onmessage = (event) => {
                 updateLineChart(nameToLineChartMap[name], JSON.parse(event.data));
                 updateBarChart(nameToBarChartMap[name], JSON.parse(event.data));
             }
 
-            loadServiceWs.onerror = (event) => {
-                console.log(`Error with [${name}]`);
+            loadServiceWs.onopen = (event) => {
+                console.log(`[${name}] connected to load ws`);
             }
+
+
+            loadServiceWs.onerror = (event) => {
+                console.error(event);
+            }
+
             loadServiceWs.onclose = (event) => {
-                console.log(`Disconnected from [${name}]`);
+                console.log(`[${name}] disconnected from load ws`)
             }
         }
 
-        function renderPreyCharts(name) {
+        async function connectToCountdownWs(name) {
+            const countdownServiceWs = new WebSocket("ws://localhost:8088/websocket/countdown?" + name, []);
+
+            countdownServiceWs.onopen = (event) => {
+                console.log(`[${name}] connected to countdown ws`);
+            }
+
+            countdownServiceWs.onmessage = (event) => {
+                updateCountdown(name, JSON.parse(event.data));
+            }
+
+            countdownServiceWs.onerror = (event) => {
+                console.error(event);
+            }
+            countdownServiceWs.onclose = (event) => {
+                console.log(`[${name}] disconnected from countdown ws`)
+            }
+        }
+
+        function updateCountdown(name, countdownTick) {
+            const progressbar = document.getElementById(`load-progressbar-${name}`);
+            const initialValue = countdownTick["initial"];
+            const currentValue = countdownTick["current"];
+
+            progressbar.setAttribute("aria-valuenow", `${initialValue}`);
+            progressbar.style.width = `${(initialValue - currentValue) / initialValue * 100}%`;
+            progressbar.innerHTML = `${currentValue}`;
+        }
+
+        async function renderPreyCharts(name) {
             const lineChartId = name + "_line_chart";
             const barChartId = name + "_bar_chart";
 
-            renderCanvasesRow(lineChartId, barChartId, name);
-            renderLineChart(lineChartId, name);
-            renderBarChart(barChartId, name);
+            await renderCanvasesRow(lineChartId, barChartId, name);
+            await renderLineChart(lineChartId, name);
+            await renderBarChart(barChartId, name);
         }
 
-        function renderLineChart(chartId, name) {
+        async function renderLineChart(chartId, name) {
             const chartContainer = {};
             const attemptNumber = [];
             const responseTime = [];
@@ -372,7 +407,7 @@
             nameToLineChartMap[name] = chartContainer;
         }
 
-        function renderBarChart(chartId, name) {
+        async function renderBarChart(chartId, name) {
             const chartContainer = {};
             const successCount = [0];
             const timeoutCount = [0];
@@ -445,9 +480,9 @@
             nameToBarChartMap[name] = chartContainer;
         }
 
-        function updateLineChart(chartContainer, report) {
-            safePush(chartContainer["responseTime"], report["responseTime"]);
-            safePush(chartContainer["attemptNumber"], report["attemptNumber"]);
+        async function updateLineChart(chartContainer, report) {
+            await safePush(chartContainer["responseTime"], report["responseTime"]);
+            await safePush(chartContainer["attemptNumber"], report["attemptNumber"]);
 
             const status = report["status"];
 
@@ -473,16 +508,16 @@
             chartContainer["chart"].update();
         }
 
-        function loadServices(rps, isObserverModeInput, isStopLoadWhenDisconnect, loadTimeSec) {
+        function loadServices(rps, isLiveModeInput, isStopLoadWhenDisconnect, loadTimeSec) {
             const msg = {
                 rps: rps,
                 stopWhenDisconnect: isStopLoadWhenDisconnect,
-                observerMode: isObserverModeInput,
+                liveMode: isLiveModeInput,
                 loadTimeSec: loadTimeSec
             }
 
             for (const name in preysToLoad) {
-                nameToWsMap[name].send(JSON.stringify(msg));
+                nameToLoadWsMap[name].send(JSON.stringify(msg));
             }
         }
 
@@ -494,10 +529,14 @@
             arr.push(element);
         }
 
-        function renderCanvasesRow(lineChartId, barChartId, name) {
+        async function renderCanvasesRow(lineChartId, barChartId, name) {
             const canvas = `
                 <label class="container-fluid text-center" for="chart-row-${name}">${name}</label>
+                <div class="progress">
+                   <div id="load-progressbar-${name}" class="progress-bar progress-bar-striped" role="progressbar" aria-label="Example with label" style="width: 0;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
                 <div id="chart-row-${name}" class="row justify-content-between">
+
                     <div id="cnavas_${lineChartId}" class="col-md-10 align-items-start">
                         <canvas id="${lineChartId}" width="100%" height="22"></canvas>
                     </div>
@@ -768,8 +807,8 @@
 
             <div class="d-flex justify-content-end col-md-4">
                 <div class="form-check form-switch">
-                    <input class="form-check-input" type="checkbox" role="switch" id="observerModeInput" checked>
-                    <label class="form-check-label" for="observerModeInput">Observer mode</label>
+                    <input class="form-check-input" type="checkbox" role="switch" id="liveModeInput" checked>
+                    <label class="form-check-label" for="liveModeInput">Live mode</label>
                 </div>
             </div>
 

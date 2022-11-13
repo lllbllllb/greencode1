@@ -5,7 +5,9 @@ public record LoadConfiguration(
 
     boolean stopWhenDisconnect,
 
-    boolean observerMode
+    boolean observerMode,
+
+    int loadTimeSec
 ) {
 
 }

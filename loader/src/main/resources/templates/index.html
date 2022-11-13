@@ -55,6 +55,20 @@
     <script type="text/javascript" charset="UTF-8">
         // preysToLoad["web"] = "http://localhost:8081/string/stream";
         // preysToLoad["webflux"] = "http://localhost:8082/string/stream";
+        const colorPack = {
+            success: {
+                borderColor: 'rgb(0, 255, 0, 1)',
+                backgroundColor: 'rgb(0, 255, 0, 0.5)',
+            },
+            timeout: {
+                borderColor: 'rgb(255, 255, 0, 1)',
+                backgroundColor: 'rgb(255, 255, 0, 0.5)',
+            },
+            error: {
+                borderColor: 'rgb(255, 0, 0, 1)',
+                backgroundColor: 'rgb(255, 0, 0, 0.5)',
+            }
+        }
         let preysToLoad = {};
         let nameToWsMap = {};
         let nameToLineChartMap = {};
@@ -137,9 +151,10 @@
 
             const observerModeInput = document.getElementById("observerModeInput");
             const stopLoadWhenDisconnectInput = document.getElementById("stopLoadWhenDisconnectInput");
+            const loadTimeInputId = document.getElementById("loadTimeInputId");
 
             rpsSlide.onchange = function () {
-                loadServices(this.value, observerModeInput.checked, stopLoadWhenDisconnectInput.checked);
+                loadServices(this.value, observerModeInput.checked, stopLoadWhenDisconnectInput.checked, loadTimeInputId.value);
             }
 
             fetch("http://localhost:8088/loadParameters", {
@@ -272,20 +287,17 @@
         function connectToWs(name) {
             const loadServiceWs = new WebSocket("ws://localhost:8088/websocket/load?" + name, []);
             nameToWsMap[name] = loadServiceWs;
-            console.log(name + "-----")
             console.log(nameToWsMap)
             loadServiceWs.onmessage = (event) => {
-                console.log(event + "====");
-
                 updateLineChart(nameToLineChartMap[name], JSON.parse(event.data));
                 updateBarChart(nameToBarChartMap[name], JSON.parse(event.data));
             }
 
             loadServiceWs.onerror = (event) => {
-                console.log(event + "err");
+                console.log(`Error with [${name}]`);
             }
             loadServiceWs.onclose = (event) => {
-                console.log(event + "cl");
+                console.log(`Disconnected from [${name}]`);
             }
         }
 
@@ -302,8 +314,12 @@
             const chartContainer = {};
             const attemptNumber = [];
             const responseTime = [];
+            const pointBackgroundColor = [];
+            const pointBorderColor = [];
             chartContainer["attemptNumber"] = attemptNumber;
             chartContainer["responseTime"] = responseTime;
+            chartContainer["pointBackgroundColor"] = pointBackgroundColor;
+            chartContainer["pointBorderColor"] = pointBorderColor;
             chartContainer["chart"] = new Chart(chartId, {
                 type: "line",
                 data: {
@@ -312,8 +328,8 @@
                         {
                             label: 'Response time, ms',
                             fill: false,
-                            borderColor: 'rgb(0, 0, 255, 1)',
-                            backgroundColor: 'rgb(0, 0, 255, 0.6)',
+                            pointBackgroundColor: pointBackgroundColor,
+                            pointBorderColor: pointBorderColor,
                             pointStyle: 'circle',
                             pointRadius: 8,
                             pointHoverRadius: 15,
@@ -372,8 +388,8 @@
                         {
                             label: 'Success',
                             data: successCount,
-                            borderColor: 'rgb(0, 255, 0, 1)',
-                            backgroundColor: 'rgb(0, 255, 0, 0.5)',
+                            borderColor: colorPack.success.borderColor,
+                            backgroundColor: colorPack.success.backgroundColor,
                             borderWidth: 2,
                             borderRadius: 5,
                             borderSkipped: false,
@@ -381,8 +397,8 @@
                         {
                             label: 'Timeout',
                             data: timeoutCount,
-                            borderColor: 'rgb(255, 255, 0, 1)',
-                            backgroundColor: 'rgb(255, 255, 0, 0.5)',
+                            borderColor: colorPack.timeout.borderColor,
+                            backgroundColor: colorPack.timeout.backgroundColor,
                             borderWidth: 2,
                             borderRadius: 5,
                             borderSkipped: false,
@@ -390,8 +406,8 @@
                         {
                             label: 'Error',
                             data: errorCount,
-                            borderColor: 'rgb(255, 0, 0, 1)',
-                            backgroundColor: 'rgb(255, 0, 0, 0.5)',
+                            borderColor: colorPack.error.borderColor,
+                            backgroundColor: colorPack.error.backgroundColor,
                             borderWidth: 2,
                             borderRadius: 5,
                             borderSkipped: false,
@@ -431,8 +447,20 @@
 
         function updateLineChart(chartContainer, report) {
             safePush(chartContainer["responseTime"], report["responseTime"]);
-            safePush(chartContainer["attemptNumber"], report["status"] + ' - ' + report["attemptNumber"]);
+            safePush(chartContainer["attemptNumber"], report["attemptNumber"]);
 
+            const status = report["status"];
+
+            if (status === "SUCCESS") {
+                safePush(chartContainer["pointBackgroundColor"], colorPack.success.backgroundColor)
+                safePush(chartContainer["pointBorderColor"], colorPack.success.borderColor)
+            } else if (status === "TIMEOUT") {
+                safePush(chartContainer["pointBackgroundColor"], colorPack.timeout.backgroundColor)
+                safePush(chartContainer["pointBorderColor"], colorPack.timeout.borderColor)
+            } else {
+                safePush(chartContainer["pointBackgroundColor"], colorPack.error.backgroundColor)
+                safePush(chartContainer["pointBorderColor"], colorPack.error.borderColor)
+            }
 
             chartContainer["chart"].update();
         }
@@ -445,22 +473,12 @@
             chartContainer["chart"].update();
         }
 
-        function getNextValue(arr) {
-            const size = arr.length;
-
-            if (size === 0) {
-                return 1;
-            }
-
-            return arr[arr.length - 1] + 1;
-        }
-
-        function loadServices(rps, isObserverModeInput, isStopLoadWhenDisconnect) {
+        function loadServices(rps, isObserverModeInput, isStopLoadWhenDisconnect, loadTimeSec) {
             const msg = {
                 rps: rps,
                 stopWhenDisconnect: isStopLoadWhenDisconnect,
-                observerMode: isObserverModeInput
-
+                observerMode: isObserverModeInput,
+                loadTimeSec: loadTimeSec
             }
 
             for (const name in preysToLoad) {

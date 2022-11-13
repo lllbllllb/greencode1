@@ -8,6 +8,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import static com.lllbllllb.loader.AttemptResult.Status.SUCCESS;
+import static com.lllbllllb.loader.AttemptResult.Status.TIMEOUT;
+import static com.lllbllllb.loader.AttemptResult.Status.UNEXPECTED_STATUS;
 
 @Slf4j
 @Service
@@ -32,7 +34,7 @@ public class AttemptService implements Finalizable, Resettable {
         var timeoutCount = preyNameToTimeoutCountMap.get(preyName).incrementAndGet();
         var errorCount = preyNameToErrorCountMap.get(preyName).get();
 
-        return new AttemptResult(responseTime, SUCCESS, attemptNumber, successCount, timeoutCount, errorCount);
+        return new AttemptResult(responseTime, TIMEOUT, attemptNumber, successCount, timeoutCount, errorCount);
     }
 
     public AttemptResult registerError(String preyName, long attemptNumber, long responseTime) {
@@ -40,7 +42,7 @@ public class AttemptService implements Finalizable, Resettable {
         var timeoutCount = preyNameToTimeoutCountMap.get(preyName).get();
         var errorCount = preyNameToErrorCountMap.get(preyName).incrementAndGet();
 
-        return new AttemptResult(responseTime, SUCCESS, attemptNumber, successCount, timeoutCount, errorCount);
+        return new AttemptResult(responseTime, UNEXPECTED_STATUS, attemptNumber, successCount, timeoutCount, errorCount);
     }
 
     @Override

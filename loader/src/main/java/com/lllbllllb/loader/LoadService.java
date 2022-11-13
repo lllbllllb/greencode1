@@ -19,8 +19,6 @@ public class LoadService implements Finalizable, Resettable, Initializable {
 
     private final Map<String, Disposable> preyNameToDisposableMap = new ConcurrentHashMap<>();
 
-    private final Map<String, LoadConfiguration> nameToLoadConfigurationMap = new ConcurrentHashMap<>();
-
     private final LoadUnitFactory loadUnitFactory;
 
     @Override
@@ -39,18 +37,6 @@ public class LoadService implements Finalizable, Resettable, Initializable {
         preyNameToDisposableMap.put(preyName, loaderDisposable);
     }
 
-    public void registerLoadConfiguration(String preyName, LoadConfiguration loadConfiguration) {
-        nameToLoadConfigurationMap.put(preyName, loadConfiguration);
-    }
-
-    public LoadConfiguration getLoadConfiguration() {
-        if (nameToLoadConfigurationMap.size() > 0) {
-            return nameToLoadConfigurationMap.values().iterator().next();
-        } else {
-            return new LoadConfiguration(0, false, true);
-        }
-    }
-
     @Override
     public void finalize(String preyName) {
         var loadUnit = preyNameToLoadUnitMap.remove(preyName);
@@ -58,8 +44,6 @@ public class LoadService implements Finalizable, Resettable, Initializable {
         if (loadUnit == null) {
             log.warn("Load unit for [{}] was already finalized", preyName);
         }
-
-        nameToLoadConfigurationMap.remove(preyName);
 
         reset(preyName);
     }

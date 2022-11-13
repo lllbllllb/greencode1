@@ -3,3 +3,7 @@ spring:
     url: r2dbc:postgresql://postgres-db:5432/postgres
     username: postgres
     password: postgrespw
+
+logging:
+  level:
+    reactor.netty.http.client.HttpClientConnect: error

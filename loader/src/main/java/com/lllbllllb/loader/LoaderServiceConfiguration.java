@@ -90,7 +90,6 @@ public class LoaderServiceConfiguration {
                         loaderService.finalizePrey(preyName);
                     }
                 });
-
             var in = session.receive()
                 .doOnNext(webSocketMessage -> {
                     var json = webSocketMessage.getPayloadAsText();

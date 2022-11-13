@@ -41,6 +41,10 @@ public class SessionService implements Initializable, Finalizable {
     public Flux<AttemptResult> subscribeToAttemptResultStream(String preyName) {
         var loadEventSink = serviceNameToLoadEventSink.get(preyName);
 
+        if (loadEventSink == null) {
+            throw new IllegalStateException("Sink for [%s] already closed".formatted(preyName));
+        }
+
         sessions.incrementAndGet();
 
         var stream = loadEventSink.asFlux();
@@ -50,18 +54,12 @@ public class SessionService implements Initializable, Finalizable {
         return stream;
     }
 
-    public boolean handleUnsubscribeFromAttemptResultStream(String preyName, boolean stopWhenDisconnect) {
-        log.info("Output stream [{}] lost a subscriber. [stopWhenDisconnect={}]", preyName, stopWhenDisconnect);
-
+    public int handleUnsubscribeFromAttemptResultStream(String preyName) {
         var sessionsCount = sessions.decrementAndGet();
 
-        if (stopWhenDisconnect && sessionsCount < 1) {
-            finalize(preyName);
+        log.info("Output stream [{}] lost a subscriber. [{}] session(s) left", preyName, sessionsCount);
 
-            return true;
-        }
-
-        return false;
+        return sessionsCount;
     }
 
     public Prey getPrey(String preyName) {
@@ -91,29 +89,31 @@ public class SessionService implements Initializable, Finalizable {
         }
     }
 
-    public void publishOutcomeEvent(String preyName, AttemptResult attemptResult, int rps) {
+//    public void publishOutcomeEvent(String preyName, AttemptResult attemptResult, int rps) {
+    public void publishOutcomeEvent(String preyName, AttemptResult attemptResult) {
         var sink = serviceNameToLoadEventSink.get(preyName);
-        var freq = 50;
 
-        if (rps > freq && attemptResult.attemptNumber() % (rps / freq) != 0) {
-            return;
-        }
-
-        if (sink != null) {
-            sink.emitNext(attemptResult, (signalType, emitResult) -> {
-                if (emitResult == Sinks.EmitResult.FAIL_NON_SERIALIZED) {
-                    LockSupport.parkNanos(10);
-                    return true;
-                } else if (emitResult == Sinks.EmitResult.FAIL_TERMINATED || emitResult == Sinks.EmitResult.FAIL_OVERFLOW) {
-                    finalize(preyName);
-
-                    return Sinks.EmitFailureHandler.FAIL_FAST.onEmitFailure(signalType, emitResult);
-                } else {
-                    return Sinks.EmitFailureHandler.FAIL_FAST.onEmitFailure(signalType, emitResult);
-                }
-            });
-        } else {
+        if (sink == null) {
             throw new IllegalStateException("Sink for [%s] not found".formatted(preyName));
         }
+//
+//        var freq = 50;
+//
+//        if (rps > freq && attemptResult.attemptNumber() % (rps / freq) != 0) {
+//            return;
+//        }
+
+        sink.emitNext(attemptResult, (signalType, emitResult) -> {
+            if (emitResult == Sinks.EmitResult.FAIL_NON_SERIALIZED) {
+                LockSupport.parkNanos(10);
+                return true;
+            } else if (emitResult == Sinks.EmitResult.FAIL_TERMINATED || emitResult == Sinks.EmitResult.FAIL_OVERFLOW) {
+                finalize(preyName);
+
+                return Sinks.EmitFailureHandler.FAIL_FAST.onEmitFailure(signalType, emitResult);
+            } else {
+                return Sinks.EmitFailureHandler.FAIL_FAST.onEmitFailure(signalType, emitResult);
+            }
+        });
     }
 }

@@ -1,6 +1,5 @@
 package com.lllbllllb.loader;
 
-import java.time.Duration;
 import java.util.List;
 
 import io.netty.handler.timeout.ReadTimeoutException;
@@ -22,6 +21,10 @@ public class LoaderService {
 
     private final LoadService loadService;
 
+    private final LoadConfigurationService loadConfigurationService;
+
+    private final TimerService timerService;
+
     private final List<Finalizable> finalizables;
 
     private final List<Resettable> resettables;
@@ -29,14 +32,12 @@ public class LoaderService {
     private final List<Initializable> initializables;
 
     public void receiveEvent(String preyName, LoadConfiguration loadConfiguration) {
-        loadService.registerLoadConfiguration(preyName, loadConfiguration);
-
-        reset(preyName);
-
-        var rps = loadConfiguration.rps();
-
-        if (rps != 0) {
-            var disposable = Flux.interval(Duration.ofNanos(1_000_000_000L / rps))
+        loadConfigurationService.updateLoadConfiguration(preyName, loadConfiguration);
+        resettables.forEach(resettable -> resettable.reset(preyName));
+        loadConfigurationService.getLoadInterval(preyName)
+            .publishOn(Schedulers.boundedElastic())
+            .doOnNext(interval -> timerService.runCountdown(preyName, loadConfiguration, System.out::println, () -> finalizePrey(preyName)))
+            .map(interval -> Flux.interval(interval)
                 .parallel().runOn(Schedulers.boundedElastic())
                 .flatMap(i -> {
                     var number = i + 1;
@@ -61,21 +62,13 @@ public class LoaderService {
                                 return Mono.error(e);
                             }
                         });
-                }, false, 9_999_999, 1)
-                .subscribe(event -> sessionService.publishOutcomeEvent(preyName, event, rps));
-
-            loadService.registerActiveLoaderDisposable(preyName, disposable);
-        } else {
-            reset(preyName);
-        }
+                }, false, loadConfigurationService.getMaxConcurrency(preyName), 1)
+                .subscribe(event -> sessionService.publishOutcomeEvent(preyName, event)))
+            .subscribe(disposable -> loadService.registerActiveLoaderDisposable(preyName, disposable));
     }
 
     public Flux<AttemptResult> getLoadEventStream(String preyName) {
         return sessionService.subscribeToAttemptResultStream(preyName);
-    }
-
-    public void reset(String preyName) {
-        resettables.forEach(resettable -> resettable.reset(preyName));
     }
 
     public void registerPrey(Prey prey) {
@@ -86,9 +79,9 @@ public class LoaderService {
 
     public void disconnectPrey(String preyName) {
         var stopWhenDisconnect = getLoadConfiguration().stopWhenDisconnect();
-        var finalize = sessionService.handleUnsubscribeFromAttemptResultStream(preyName, stopWhenDisconnect);
+        var sessionsLeft = sessionService.handleUnsubscribeFromAttemptResultStream(preyName);
 
-        if (finalize) {
+        if (sessionsLeft < 1 && stopWhenDisconnect) {
             finalizePrey(preyName);
         }
     }
@@ -104,6 +97,6 @@ public class LoaderService {
     }
 
     public LoadConfiguration getLoadConfiguration() {
-        return loadService.getLoadConfiguration();
+        return loadConfigurationService.getLoadConfiguration();
     }
 }

@@ -69,6 +69,7 @@
                 backgroundColor: 'rgb(255, 0, 0, 0.5)',
             }
         }
+        let dataCounters = {};
         let preysToLoad = {};
         let nameToLoadWsMap = {};
         let nameToLineChartMap = {};
@@ -80,10 +81,10 @@
             "Connection": "keep-alive"
         };
 
-        window.onload = (event) => {
-            registerSliderForm();
+        window.onload = async (event) => {
+            await registerSliderForm();
             registerSubmitNewPreyEventListener();
-            reloadPreys();
+            await reloadPreys();
             registerAddHeaderButtonButton();
             renderHeaders();
         };
@@ -139,7 +140,7 @@
             registerDeleteItemButton(deleteButtonId, name);
         }
 
-        function registerSliderForm() {
+        async function registerSliderForm() {
             onSliderStickyContainerEvent();
 
             const rpsSlide = document.getElementById('rpsSlide');
@@ -154,22 +155,26 @@
             const loadTimeInputId = document.getElementById("loadTimeInputId");
 
             rpsSlide.onchange = function () {
-                loadServices(this.value, liveModeInput.checked, stopLoadWhenDisconnectInput.checked, loadTimeInputId.value);
+                const value = this.value;
+                if (value > 0) {
+                    resetCharts();
+                }
+                loadServices(value, liveModeInput.checked, stopLoadWhenDisconnectInput.checked, loadTimeInputId.value);
             }
 
-            fetch("http://localhost:8088/loadParameters", {
+            const loadParameters = await fetch("http://localhost:8088/loadParameters", {
                 method: "GET",
                 headers: {
                     "Content-Type": "application/json",
                     "Accept": "application/json"
                 }
-            }).then(preys => preys.json())
-                .then(loadOptions => {
-                    rpsSlide.value = loadOptions.rps;
-                    rpsSliderDiv.innerHTML = loadOptions.rps;
-                    liveModeInput.checked = loadOptions.liveMode;
-                    stopLoadWhenDisconnectInput.checked = loadOptions.stopWhenDisconnect;
-                });
+            });
+            const loadOptions = await loadParameters.json()
+
+            rpsSlide.value = loadOptions.rps;
+            rpsSliderDiv.innerHTML = loadOptions.rps;
+            liveModeInput.checked = loadOptions.liveMode;
+            stopLoadWhenDisconnectInput.checked = loadOptions.stopWhenDisconnect;
         }
 
         function registerSubmitNewPreyEventListener() {
@@ -209,10 +214,9 @@
 
 
         function registerDeleteItemButton(id, name) {
-            document.getElementById(id).onclick = function () {
-
+            document.getElementById(id).onclick = async () => {
                 if (preysToLoad[name]) {
-                    unregisterPrey(name);
+                    await unregisterPrey(name);
                 }
             }
         }
@@ -225,33 +229,32 @@
             preysToLoad = {};
             nameToLoadWsMap = {};
             nameToLineChartMap = {};
-
-            await fetch("http://localhost:8088/prey", {
+            const response = await fetch("http://localhost:8088/prey", {
                 method: "GET",
                 headers: {
                     "Content-Type": "application/json",
                     "Accept": "application/json"
                 }
-            }).then(preys => preys.json())
-                .then(preys => {
-                    preys.forEach((prey, index, array) => {
-                        const name = prey.name;
-                        const url = prey.path;
-                        const method = prey.method;
-                        const requestParameters = prey.requestParameters;
-                        const headers = prey.headers;
-                        const requestBody = prey.requestBody;
-                        const timeout = prey.timeoutMs;
-                        preysToLoad[name] = url;
-                        renderPrey(name, url, method, requestParameters, headers, requestBody, timeout);
-                        renderPreyCharts(name);
-                        connectToLoadWs(name);
-                        connectToCountdownWs(name);
-                    });
-                });
+            });
+            const preys = await response.json();
+
+            await preys.forEach((prey, index, array) => {
+                const name = prey.name;
+                const url = prey.path;
+                const method = prey.method;
+                const requestParameters = prey.requestParameters;
+                const headers = prey.headers;
+                const requestBody = prey.requestBody;
+                const timeout = prey.timeoutMs;
+                preysToLoad[name] = url;
+                renderPrey(name, url, method, requestParameters, headers, requestBody, timeout);
+                renderPreyCharts(name);
+                connectToLoadWs(name);
+                connectToCountdownWs(name);
+            });
         }
 
-        function registerPrey(name, url, method, requestParameters, headers, requestBody, responseTimeout, expectedResponseStatusCode) {
+        async function registerPrey(name, url, method, requestParameters, headers, requestBody, responseTimeout, expectedResponseStatusCode) {
             const body = {
                 name: name,
                 path: url,
@@ -263,38 +266,36 @@
                 expectedResponseStatusCode: expectedResponseStatusCode
             }
 
-            fetch("http://localhost:8088/prey", {
+            await fetch("http://localhost:8088/prey", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify(body)
-            }).then(date => {
-                reloadPreys();
-            });
+            })
+            await reloadPreys();
         }
 
-        function unregisterPrey(name) {
-            fetch("http://localhost:8088/prey/" + name, {
+        async function unregisterPrey(name) {
+            await fetch("http://localhost:8088/prey/" + name, {
                 method: "DELETE",
                 headers: {
                     "Content-Type": "application/json"
                 }
-            }).then(date => {
-                reloadPreys();
-            });
+            })
+            await reloadPreys();
         }
 
-        async function connectToLoadWs(name) {
+        function connectToLoadWs(name) {
             const loadServiceWs = new WebSocket("ws://localhost:8088/websocket/load?" + name, []);
             nameToLoadWsMap[name] = loadServiceWs;
             loadServiceWs.onmessage = (event) => {
-                updateLineChart(nameToLineChartMap[name], JSON.parse(event.data));
-                updateBarChart(nameToBarChartMap[name], JSON.parse(event.data));
+                appendData(name, JSON.parse(event.data));
             }
 
             loadServiceWs.onopen = (event) => {
                 console.log(`[${name}] connected to load ws`);
+                dataCounters[name] = 0;
             }
 
 
@@ -307,7 +308,20 @@
             }
         }
 
-        async function connectToCountdownWs(name) {
+        function appendData(name, data) {
+            appendLineChartData(nameToLineChartMap[name], data);
+            appendBarChartData(nameToBarChartMap[name], data);
+
+            if (!dataCounters[name]) {
+                dataCounters[name] = 0;
+                runChartUpdate(name, Number.MIN_SAFE_INTEGER);
+                console.log(`Chart for [${name}] was waked up`);
+            }
+
+            dataCounters[name]++;
+        }
+
+        function connectToCountdownWs(name) {
             const countdownServiceWs = new WebSocket("ws://localhost:8088/websocket/countdown?" + name, []);
 
             countdownServiceWs.onopen = (event) => {
@@ -321,8 +335,32 @@
             countdownServiceWs.onerror = (event) => {
                 console.error(event);
             }
+
             countdownServiceWs.onclose = (event) => {
                 console.log(`[${name}] disconnected from countdown ws`)
+            }
+        }
+
+        function runChartUpdate(name, prevValue) {
+            const counter = dataCounters[name];
+
+            if (prevValue !== counter) {
+                setTimeout(() => {
+                    nameToLineChartMap[name]["chart"].update();
+                    nameToBarChartMap[name]["chart"].update();
+
+                    runChartUpdate(name, counter)
+                }, 2000);
+            } else {
+                dataCounters[name] = 0;
+
+                console.log(`Chart for [${name}] was snooze`);
+            }
+        }
+
+        function resetCharts() {
+            for (const name in nameToLineChartMap) {
+                nameToLineChartMap[name]["chart"].clear();
             }
         }
 
@@ -336,16 +374,16 @@
             progressbar.innerHTML = `${currentValue}`;
         }
 
-        async function renderPreyCharts(name) {
+        function renderPreyCharts(name) {
             const lineChartId = name + "_line_chart";
             const barChartId = name + "_bar_chart";
 
-            await renderCanvasesRow(lineChartId, barChartId, name);
-            await renderLineChart(lineChartId, name);
-            await renderBarChart(barChartId, name);
+            renderCanvasesRow(lineChartId, barChartId, name);
+            renderLineChart(lineChartId, name);
+            renderBarChart(barChartId, name);
         }
 
-        async function renderLineChart(chartId, name) {
+        function renderLineChart(chartId, name) {
             const chartContainer = {};
             const attemptNumber = [];
             const responseTime = [];
@@ -398,7 +436,7 @@
                             text: name,
                         },
                         decimation: {
-                            enabled: false,
+                            enabled: true,
                             algorithm: 'lttb',
                             samples: 4,
                             threshold: 1000
@@ -410,7 +448,7 @@
             nameToLineChartMap[name] = chartContainer;
         }
 
-        async function renderBarChart(chartId, name) {
+        function renderBarChart(chartId, name) {
             const chartContainer = {};
             const successCount = [0];
             const timeoutCount = [0];
@@ -483,9 +521,9 @@
             nameToBarChartMap[name] = chartContainer;
         }
 
-        async function updateLineChart(chartContainer, report) {
-            await safePush(chartContainer["responseTime"], report["responseTime"]);
-            await safePush(chartContainer["attemptNumber"], report["attemptNumber"]);
+        function appendLineChartData(chartContainer, report) {
+            safePush(chartContainer["responseTime"], report["responseTime"]);
+            safePush(chartContainer["attemptNumber"], report["attemptNumber"]);
 
             const status = report["status"];
 
@@ -499,16 +537,26 @@
                 safePush(chartContainer["pointBackgroundColor"], colorPack.error.backgroundColor)
                 safePush(chartContainer["pointBorderColor"], colorPack.error.borderColor)
             }
-
-            chartContainer["chart"].update();
         }
 
-        function updateBarChart(chartContainer, report) {
-            chartContainer["successCount"][0] = report["successCount"]
-            chartContainer["timeoutCount"][0] = report["timeoutCount"]
-            chartContainer["errorCount"][0] = report["errorCount"]
+        function appendBarChartData(chartContainer, report) {
+            const currentSuccessCount = chartContainer["successCount"][0];
+            const newSuccessCount = report["successCount"];
+            if (newSuccessCount > currentSuccessCount) {
+                chartContainer["successCount"][0] = newSuccessCount;
+            }
 
-            chartContainer["chart"].update();
+            const currentTimeoutCount = chartContainer["timeoutCount"][0];
+            const newTimeoutCount = report["timeoutCount"];
+            if (newTimeoutCount > currentTimeoutCount) {
+                chartContainer["timeoutCount"][0] = newTimeoutCount;
+            }
+
+            const currentErrorCount = chartContainer["errorCount"][0];
+            const newErrorCount = report["errorCount"];
+            if (newErrorCount > currentErrorCount) {
+                chartContainer["errorCount"][0] = newErrorCount;
+            }
         }
 
         function loadServices(rps, isLiveModeInput, isStopLoadWhenDisconnect, loadTimeSec) {
@@ -525,14 +573,10 @@
         }
 
         function safePush(arr, element, maxSize = 100) {
-            if (arr.length > maxSize) {
-                arr.shift();
-            }
-
             arr.push(element);
         }
 
-        async function renderCanvasesRow(lineChartId, barChartId, name) {
+        function renderCanvasesRow(lineChartId, barChartId, name) {
             const canvas = `
                 <label class="container-fluid text-center mt-1" for="chart-row-${name}">${name}</label>
                 <div id="chart-row-${name}" class="row justify-content-between">
@@ -550,10 +594,6 @@
             `;
 
             document.getElementById("chartContainer").insertAdjacentHTML("beforeend", canvas);
-        }
-
-        function getRandomColor() {
-            return "#" + ((1 << 24) * Math.random() | 0).toString(16);
         }
 
         function renderHeaders() {

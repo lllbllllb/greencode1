@@ -51,7 +51,7 @@ public class AttemptService implements Finalizable, Resettable {
         preyNameToTimeoutCountMap.put(preyName, new AtomicLong(0));
         preyNameToErrorCountMap.put(preyName, new AtomicLong(0));
 
-        log.info("Attempts counters for [{}] was successfully reset", preyName);
+        log.info("Attempts counters for [{}] was reset successfully", preyName);
     }
 
     @Override

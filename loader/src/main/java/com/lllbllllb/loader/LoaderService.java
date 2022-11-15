@@ -1,8 +1,14 @@
 package com.lllbllllb.loader;
 
+import java.net.http.HttpClient;
+import java.net.http.HttpConnectTimeoutException;
+import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
+import java.time.Clock;
 import java.util.List;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletionException;
 
-import io.netty.handler.timeout.ReadTimeoutException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -15,13 +21,19 @@ import reactor.core.scheduler.Schedulers;
 @RequiredArgsConstructor
 public class LoaderService {
 
+    private final HttpClient httpClient;
+
+    private final Clock clock;
+
+    private final HttpRequestService httpRequestService;
+
     private final SessionService sessionService;
 
     private final AttemptService attemptService;
 
     private final LoadService loadService;
 
-    private final LoadConfigurationService loadConfigurationService;
+    private final LoadOptionsService loadOptionsService;
 
     private final CountdownService countdownService;
 
@@ -31,10 +43,10 @@ public class LoaderService {
 
     private final List<Initializable> initializables;
 
-    public void receiveEvent(String preyName, LoadOptions loadOptions) {
-        loadConfigurationService.updateLoadConfiguration(preyName, loadOptions);
+    public void receiveEvent1(String preyName, LoadOptions loadOptions) {
         resettables.forEach(resettable -> resettable.reset(preyName));
-        loadConfigurationService.getLoadInterval(preyName)
+        loadOptionsService.updateLoadOptions(preyName, loadOptions);
+        loadOptionsService.getLoadInterval(preyName)
             .publishOn(Schedulers.boundedElastic())
             .doOnNext(interval -> countdownService.runCountdown(
                 preyName,
@@ -43,32 +55,38 @@ public class LoaderService {
                 () -> resettables.forEach(resettable -> resettable.reset(preyName))
             ))
             .map(interval -> Flux.interval(interval)
-                .parallel().runOn(Schedulers.boundedElastic())
+                .onBackpressureDrop(dropped -> log.warn("Tick {} was dropped due to lack of requests", dropped))// https://stackoverflow.com/a/60092653
+                .parallel().runOn(Schedulers.newParallel(preyName))
                 .flatMap(i -> {
                     var number = i + 1;
-                    var prey = sessionService.getPrey(preyName);
+                    var httpRequest = httpRequestService.getHttpRequest(preyName);
+                    var start = clock.millis();
 
-                    return loadService.getUnit(preyName)
-                        .map(tuple2 -> {
-                            var responseTime = tuple2.getT1();
+                    return Mono.fromFuture(httpClient.sendAsync(httpRequest, responseInfo -> {
+                            var responseTime = clock.millis() - start;
 
-                            if (prey.expectedResponseStatusCode() == tuple2.getT2()) {
-                                return attemptService.registerSuccess(preyName, number, responseTime);
+                            if (responseInfo.statusCode() == 200) {
+                                return HttpResponse.BodySubscribers.replacing(attemptService.registerSuccess(preyName, number, responseTime));
+                            } else {
+                                return HttpResponse.BodySubscribers.replacing(attemptService.registerError(preyName, number, responseTime));
+                            }
+                        })
+                        .thenApply(HttpResponse::body)
+                        .exceptionally(throwable -> {
+                            var responseTime = clock.millis() - start;
+
+                            if (CompletionException.class.equals(throwable.getClass())
+                                && (HttpTimeoutException.class.equals(throwable.getCause().getClass())
+                                || HttpConnectTimeoutException.class.equals(throwable.getCause().getClass())
+                                || CancellationException.class.equals(throwable.getCause().getClass()))) {
+                                return attemptService.registerTimeout(preyName, number, responseTime);
                             } else {
                                 return attemptService.registerError(preyName, number, responseTime);
                             }
-                        })
-                        .onErrorResume(e -> {
-                            if (ReadTimeoutException.class.equals(e.getClass()) || ReadTimeoutException.class.equals(e.getCause().getClass())) {
-                                return Mono.just(attemptService.registerTimeout(preyName, number, prey.timeoutMs()));
-                            } else {
-                                log.error(e.getMessage(), e);
-
-                                return Mono.error(e);
-                            }
-                        });
-                }, false, loadConfigurationService.getMaxConcurrency(preyName), 1)
-                .subscribe(event -> sessionService.publishAttemptResult(preyName, event)))
+                        }));
+                }, false, loadOptionsService.getMaxConcurrency(preyName), 1)
+                .subscribe(event -> sessionService.publishAttemptResult(preyName, event))
+            )
             .subscribe(disposable -> loadService.registerActiveLoaderDisposable(preyName, disposable));
     }
 
@@ -106,6 +124,6 @@ public class LoaderService {
     }
 
     public LoadOptions getLoadConfiguration() {
-        return loadConfigurationService.getLoadConfiguration();
+        return loadOptionsService.getLoadOptions();
     }
 }

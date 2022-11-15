@@ -42,5 +42,4 @@ public class LoadUnitFactory {
             .exchangeToMono(clientResponse -> Mono.just(clientResponse.rawStatusCode()))
             .elapsed();
     }
-
 }

@@ -1,5 +1,6 @@
 package com.lllbllllb.loader;
 
+import java.net.http.HttpClient;
 import java.time.Clock;
 import java.util.List;
 import java.util.Map;
@@ -101,7 +102,7 @@ public class LoaderServiceConfiguration {
                     var json = webSocketMessage.getPayloadAsText();
                     var incomeEvent = objectMapperService.fromJson(json);
 
-                    loaderService.receiveEvent(preyName, incomeEvent);
+                    loaderService.receiveEvent1(preyName, incomeEvent);
                 })
                 .doOnError(err -> log.error(err.getMessage(), err))
                 .then();
@@ -150,6 +151,13 @@ public class LoaderServiceConfiguration {
                 return noContent().build();
             }))
             .and(route(GET(urlRps), request -> ok().body(Mono.fromCallable(loaderService::getLoadConfiguration), LoadOptions.class)));
+    }
+
+    @Bean
+    HttpClient httpClient() {
+        return java.net.http.HttpClient.newBuilder()
+            .version(java.net.http.HttpClient.Version.HTTP_1_1)
+            .build();
     }
 
     @Bean

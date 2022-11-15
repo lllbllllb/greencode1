@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.LockSupport;
 import java.util.stream.Collectors;
 
 import lombok.extern.slf4j.Slf4j;
@@ -34,7 +33,7 @@ public class SessionService implements Initializable, Finalizable {
 
         preyNameToPreyMap.put(preyName, prey);
 
-        var attemptResultSink = Sinks.many().multicast().<AttemptResult>onBackpressureBuffer(SMALL_BUFFER_SIZE, false);
+        var attemptResultSink = Sinks.many().multicast().<AttemptResult>onBackpressureBuffer(Integer.MAX_VALUE, false);
 
         preyNameToAttemptResultSink.put(preyName, attemptResultSink);
 
@@ -83,10 +82,6 @@ public class SessionService implements Initializable, Finalizable {
         return sessionsCount;
     }
 
-    public Prey getPrey(String preyName) {
-        return preyNameToPreyMap.get(preyName);
-    }
-
     public List<Prey> getAllPreys() {
         return preyNameToPreyMap.values().stream()
             .sorted(Comparator.comparing(Prey::name))
@@ -128,6 +123,7 @@ public class SessionService implements Initializable, Finalizable {
 
         sink.emitNext(attemptResult, CUSTOM_EMIT_FAILURE_HANDLER);
     }
+
     public void publishACountdownTick(String preyName, CountdownTick countdownTick) {
         var sink = preyNameToCountdownTickSink.get(preyName);
 

@@ -7,7 +7,7 @@
     <parent>
         <groupId>com.lllbllllb</groupId>
         <artifactId>greencode1</artifactId>
-        <version>0.0.3-SNAPSHOT</version>
+        <version>0.0.5</version>
     </parent>
 
     <artifactId>benchmark</artifactId>
@@ -25,10 +25,6 @@
     </properties>
 
     <dependencies>
-        <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-lang3</artifactId>
-        </dependency>
         <dependency>
             <groupId>io.projectreactor</groupId>
             <artifactId>reactor-core</artifactId>

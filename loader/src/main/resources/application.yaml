@@ -1,9 +1,8 @@
+server:
+  port: 8089
+
 spring:
-  r2dbc:
-    url: r2dbc:postgresql://postgres-db:5432/postgres
+  datasource:
+    url: jdbc:postgresql://localhost:5432/postgres
     username: postgres
     password: postgrespw
-
-logging:
-  level:
-    reactor.netty.http.client.HttpClientConnect: error

@@ -13,7 +13,7 @@
 
     <groupId>com.lllbllllb</groupId>
     <artifactId>greencode1</artifactId>
-    <version>0.0.3-SNAPSHOT</version>
+    <version>0.0.5</version>
     <name>greencode1</name>
     <packaging>pom</packaging>
 
@@ -47,7 +47,7 @@
             <dependency>
                 <groupId>com.lllbllllb</groupId>
                 <artifactId>common</artifactId>
-                <version>0.0.3-SNAPSHOT</version>
+                <version>0.0.5</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

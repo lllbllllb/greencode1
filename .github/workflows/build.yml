@@ -12,7 +12,7 @@ on: [push]
 
 env:
   IMAGE_SLOWPOKE_NAME: github-greencode1-slowpoke-tmp-image
-  IMAGE_WEB_NAME: github-greencode1-webflux-tmp-image
+  IMAGE_WEB_NAME: github-greencode1-webf-tmp-image
   IMAGE_WEBFLUX_NAME: github-greencode1-webflux-tmp-image
 
 jobs:

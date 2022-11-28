@@ -7,7 +7,7 @@
     <parent>
         <groupId>com.lllbllllb</groupId>
         <artifactId>greencode1</artifactId>
-        <version>0.0.5</version>
+        <version>${revision}</version>
     </parent>
 
     <artifactId>common</artifactId>

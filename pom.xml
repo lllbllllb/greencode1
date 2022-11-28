@@ -13,12 +13,14 @@
 
     <groupId>com.lllbllllb</groupId>
     <artifactId>greencode1</artifactId>
-    <version>0.0.5</version>
+    <version>${revision}</version>
     <name>greencode1</name>
     <packaging>pom</packaging>
 
     <properties>
         <java.version>17</java.version>
+        <flatten.maven.plugin.version>1.2.2</flatten.maven.plugin.version>
+        <revision>0.0.6</revision>
     </properties>
 
     <modules>
@@ -47,9 +49,39 @@
             <dependency>
                 <groupId>com.lllbllllb</groupId>
                 <artifactId>common</artifactId>
-                <version>0.0.5</version>
+                <version>${revision}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>flatten-maven-plugin</artifactId>
+                <version>${flatten.maven.plugin.version}</version>
+                <configuration>
+                    <updatePomFile>true</updatePomFile>
+                    <flattenMode>resolveCiFriendliesOnly</flattenMode>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>flatten</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>flatten</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>flatten.clean</id>
+                        <phase>clean</phase>
+                        <goals>
+                            <goal>clean</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>

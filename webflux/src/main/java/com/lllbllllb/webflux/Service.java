@@ -48,7 +48,8 @@ public class Service {
             .uri(path)
             .retrieve()
             .bodyToMono(Entity.class)
-            .as(Flux::from);
+            .as(Flux::from)
+            .share();
     }
 
     private Flux<Entity> getFromDbByRandomName() {

@@ -19,19 +19,17 @@ import org.openjdk.jmh.annotations.Warmup;
 @State(Scope.Benchmark)
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
-@Fork(value = 4, warmups = 4, jvmArgs = {"-Xms512M", "-Xmx512M"})
-@Warmup(iterations = 4, time = 2, timeUnit = TimeUnit.SECONDS)
+@Fork(value = 1, warmups = 1, jvmArgs = {"-Xms512M", "-Xmx512M"})
+@Warmup(iterations = 2, time = 2, timeUnit = TimeUnit.SECONDS)
 @Measurement(iterations = 4, time = 2, timeUnit = TimeUnit.SECONDS)
 @Threads(1)
-@Timeout(time = 1, timeUnit = TimeUnit.MINUTES)
 @ExtendWith(TimingExtension.class)
 abstract class BaseBenchmarkTest {
 
     @Test
-    @Disabled("for remote build")
+//    @Disabled("for remote build")
     void benchmark() throws Exception {
-        String[] argv = {};
-        org.openjdk.jmh.Main.main(argv);
+        org.openjdk.jmh.Main.main(new String[]{});
     }
 
 }

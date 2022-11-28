@@ -3,7 +3,9 @@ package com.lllbllllb.slowpoke;
 import java.time.Duration;
 
 import com.lllbllllb.common.Entity;
+import lombok.SneakyThrows;
 import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.commons.lang3.RandomUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
@@ -35,8 +37,33 @@ public class RestController {
             .subscribeOn(Schedulers.boundedElastic());
     }
 
+    @GetMapping("/publishOn")
+    public Mono<String> publishOn() {
+        return Mono.fromCallable(this::blocking)
+            .publishOn(Schedulers.boundedElastic());
+    }
+
+    @GetMapping("/subscribeOn")
+    public Mono<String> subscribeOn() {
+        return Mono.fromCallable(this::blocking)
+            .subscribeOn(Schedulers.boundedElastic());
+    }
+
+    @GetMapping("/noScheduler")
+    public Mono<String> noScheduler() {
+        return Mono.fromCallable(this::blocking);
+    }
+
     private Entity getRandomValueEntity(String arg) {
         return new Entity(arg, RandomStringUtils.randomAlphabetic(1));
     }
 
+    @SneakyThrows
+    private String blocking() {
+        var rand = RandomStringUtils.randomAlphabetic(4);
+
+        Thread.sleep(200);
+
+        return rand;
+    }
 }

@@ -37,11 +37,11 @@ jobs:
     - name: Build a container image from our Spring Boot app using Paketo.io / Cloud Native Build Packs
       run: |
         cd ./slowpoke/
-        mvn spring-boot:build-image -Dspring-boot.build-image.imageName=IMAGE_SLOWPOKE_NAME
+        mvn spring-boot:build-image -Dspring-boot.build-image.imageName=$IMAGE_SLOWPOKE_NAME
         cd ../web/
-        mvn spring-boot:build-image -Dspring-boot.build-image.imageName=IMAGE_WEB_NAME
+        mvn spring-boot:build-image -Dspring-boot.build-image.imageName=$IMAGE_WEB_NAME
         cd ../webflux/
-        mvn spring-boot:build-image -Dspring-boot.build-image.imageName=IMAGE_WEBFLUX_NAME
+        mvn spring-boot:build-image -Dspring-boot.build-image.imageName=$IMAGE_WEBFLUX_NAME
     - name: Set Release version env variable
       run: |
         echo "RELEASE_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)" >> $GITHUB_ENV

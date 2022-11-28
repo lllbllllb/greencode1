@@ -48,7 +48,7 @@ jobs:
     - name: Publish to Docker Hub
       run: |
         docker tag $IMAGE_SLOWPOKE_NAME mbllllb/slowpoke:latest
-        docker tag $IMAGE_SLOWPOKE_NAME mbllllb/slowpoke:${{env.26}}
+        docker tag $IMAGE_SLOWPOKE_NAME mbllllb/slowpoke:${{env.RELEASE_VERSION}}
         docker tag $IMAGE_WEB_NAME mbllllb/web:latest
         docker tag $IMAGE_WEB_NAME mbllllb/web:${{env.RELEASE_VERSION}}
         docker tag $IMAGE_WEBFLUX_NAME mbllllb/webflux:latest

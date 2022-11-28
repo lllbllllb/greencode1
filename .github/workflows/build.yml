@@ -47,12 +47,12 @@ jobs:
         echo "RELEASE_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)" >> $GITHUB_ENV
     - name: Publish to Docker Hub
       run: |
-        docker tag $IMAGE_NAME mbllllb/slowpoke:latest
-        docker tag $IMAGE_NAME mbllllb/slowpoke:${{env.RELEASE_VERSION}}
-        docker tag $IMAGE_NAME mbllllb/web:latest
-        docker tag $IMAGE_NAME mbllllb/web:${{env.RELEASE_VERSION}}
-        docker tag $IMAGE_NAME mbllllb/webflux:latest
-        docker tag $IMAGE_NAME mbllllb/webflux:${{env.RELEASE_VERSION}}
+        docker tag $IMAGE_SLOWPOKE_NAME mbllllb/slowpoke:latest
+        docker tag $IMAGE_SLOWPOKE_NAME mbllllb/slowpoke:${{env.26}}
+        docker tag $IMAGE_WEB_NAME mbllllb/web:latest
+        docker tag $IMAGE_WEB_NAME mbllllb/web:${{env.RELEASE_VERSION}}
+        docker tag $IMAGE_WEBFLUX_NAME mbllllb/webflux:latest
+        docker tag $IMAGE_WEBFLUX_NAME mbllllb/webflux:${{env.RELEASE_VERSION}}
         
         docker push mbllllb/slowpoke:latest
         docker push mbllllb/slowpoke:${{env.RELEASE_VERSION}}        

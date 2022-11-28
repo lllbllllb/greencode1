@@ -2,6 +2,7 @@ package com.lllbllllb.greencode;
 
 import java.util.concurrent.TimeUnit;
 
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -27,6 +28,7 @@ import org.openjdk.jmh.annotations.Warmup;
 abstract class BaseBenchmarkTest {
 
     @Test
+    @Disabled("for remote build")
     void benchmark() throws Exception {
         String[] argv = {};
         org.openjdk.jmh.Main.main(argv);

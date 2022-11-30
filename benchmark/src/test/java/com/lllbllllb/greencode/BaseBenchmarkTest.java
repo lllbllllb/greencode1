@@ -20,8 +20,8 @@ import org.openjdk.jmh.annotations.Warmup;
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 @Fork(value = 1, warmups = 1, jvmArgs = {"-Xms512M", "-Xmx512M"})
-@Warmup(iterations = 2, time = 2, timeUnit = TimeUnit.SECONDS)
-@Measurement(iterations = 4, time = 2, timeUnit = TimeUnit.SECONDS)
+@Warmup(iterations = 2, time = 4, timeUnit = TimeUnit.SECONDS)
+@Measurement(iterations = 6, time = 10, timeUnit = TimeUnit.SECONDS)
 @Threads(1)
 @ExtendWith(TimingExtension.class)
 abstract class BaseBenchmarkTest {

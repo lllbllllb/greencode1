@@ -13,7 +13,6 @@ import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Threads;
-import org.openjdk.jmh.annotations.Timeout;
 import org.openjdk.jmh.annotations.Warmup;
 
 @State(Scope.Benchmark)
@@ -27,7 +26,7 @@ import org.openjdk.jmh.annotations.Warmup;
 abstract class BaseBenchmarkTest {
 
     @Test
-//    @Disabled("for remote build")
+    @Disabled("for remote build")
     void benchmark() throws Exception {
         org.openjdk.jmh.Main.main(new String[]{});
     }

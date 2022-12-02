@@ -30,6 +30,7 @@
         <module>slowpoke</module>
         <module>loader</module>
         <module>benchmark</module>
+        <module>puzzler</module>
     </modules>
 
     <dependencies>

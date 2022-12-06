@@ -2,14 +2,20 @@ package com.lllbllllb.greencode;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.stream.Stream;
 
+import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
+import org.slf4j.MDC;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
+import reactor.core.scheduler.Schedulers;
+import reactor.test.StepVerifier;
 
 import static reactor.core.publisher.Sinks.EmitFailureHandler.FAIL_FAST;
 
+@Slf4j
 public class ReactorPuzzlerTest {
 
     // assembly vs subscription
@@ -41,8 +47,6 @@ public class ReactorPuzzlerTest {
         Thread.sleep(100);
     }
 
-    // publishers
-
     @Test
     void coldPublisher() throws Exception {
         var source = Flux.fromIterable(List.of("blue", "green", "orange", "purple"))
@@ -73,6 +77,22 @@ public class ReactorPuzzlerTest {
         Thread.sleep(100);
     }
 
+    // publishers
+    @Test
+    void oneMoreWayToGettingHot() throws Exception {
+        var obj = Flux.just(1, 2, 3, 4)
+            .delayElements(Duration.ofSeconds(1))
+            .share();
+
+        obj.subscribe(x -> System.out.println("#1 - " + x));
+
+        Thread.sleep(3000);
+
+        obj.subscribe(x -> System.out.println("#2 - " + x));
+
+        Thread.sleep(3000);
+    }
+
     @Test
     void publishOnVsSubscribeOn() throws Exception {
         Mono.just(1)
@@ -88,12 +108,11 @@ public class ReactorPuzzlerTest {
 //                    .publishOn(Schedulers.boundedElastic())
                     .doOnNext(i -> System.out.printf("#onNext_2 - %s | %s%n", i, Thread.currentThread().getName()))
             )
-            .doOnNext(i -> System.out.printf("#onNext_3- %s | %s%n", i, Thread.currentThread().getName()))
+            .doOnNext(i -> System.out.printf("#onNext_3 - %s | %s%n", i, Thread.currentThread().getName()))
 //            .subscribeOn(Schedulers.boundedElastic())
             .subscribe();
 
         Thread.sleep(4000);
-
     }
 
     @Test
@@ -186,15 +205,53 @@ public class ReactorPuzzlerTest {
             .subscribe(System.out::println);
     }
 
+    @Test
+    void runPublisherImmediate() {
+        Mono.just(new EchoObject("#1"))
+            .switchIfEmpty(Mono.defer(() -> Mono.just(new EchoObject("#2"))))
+            .doOnNext(e -> System.out.println("#3"))
+            .switchIfEmpty(Mono.defer(() -> Mono.just(new EchoObject("#4"))))
+            .subscribe();
+    }
+
+    @Test
+    void createFluxFromStream() {
+        Flux.defer(() -> Flux.fromStream(Stream.of("a", "b", "c")))
+            .repeat(1)
+            .subscribe(System.out::println);
+    }
+
+    // context
+
+    @Test
+    void tryMdc() {
+
+        Flux.just("1", "2", "3", "4")
+            .doOnNext(i -> {
+                MDC.put(i, i);
+                System.out.printf("#doOnNext_0 | thread=%s | i=%s%n", Thread.currentThread().getName(), i);
+            })
+            .doOnNext(i -> System.out.printf("#doOnNext_1 | thread=%s | i=%s | MDC=%s%n", Thread.currentThread().getName(), i, MDC.get(i)))
+            .publishOn(Schedulers.parallel())
+            .doOnNext(i -> System.out.printf("#doOnNext_2 | thread=%s | i=%s | MDC=%s%n", Thread.currentThread().getName(), i, MDC.get(i)))
+            .subscribe();
+    }
+
+    @Test
+    void useContext() {
+        var key = "message";
+        var r = Mono
+            .deferContextual(ctx -> Mono.just("Hello " + ctx.get(key)))
+            .contextWrite(ctx -> ctx.put(key, "Reactor"))
+            .flatMap(s -> Mono.deferContextual(ctx -> Mono.just(s + " " + ctx.get(key))))
+            .contextWrite(ctx -> ctx.put(key, "World"));
+
+        StepVerifier.create(r)
+            .expectNext("Hello Reactor World")
+            .verifyComplete();
+    }
+
+
     // Note that sequential() is implicitly applied if you subscribe to the ParallelFlux
     // with a Subscriber but not when using the lambda-based variants of subscribe.
-    @Test
-    void parallelFlux1() throws InterruptedException {
-        Flux.just(1, 2, 3, 4, 5, 6)
-            .parallel()
-            .doOnNext(i -> System.out.printf("#doOnNext %s - %s%n", i, Thread.currentThread().getName()))
-            .subscribe(i -> System.out.printf("#subscribe %s - %s%n", i, Thread.currentThread().getName()));
-
-        Thread.sleep(1000);
-    }
 }
